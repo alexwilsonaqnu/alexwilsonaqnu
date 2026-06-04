@@ -56,7 +56,17 @@ export function effort(intent: string): { variants: number; depth: "quick" | "st
   return { variants: 6, depth: "standard" };
 }
 
-/** The orchestrator owns one ledger per session. */
+/**
+ * The orchestrator owns one ledger per session.
+ *
+ * Marks the process as the FP&A runtime so child hook processes (spawned by the
+ * harness, inheriting this env) enforce the provenance Stop-gate. Outside this
+ * runtime — e.g. a plain interactive `claude` session in the repo — the gate
+ * passes through, so ordinary chat that mentions a number isn't blocked.
+ */
 export function openLedger(sessionId?: string): Ledger {
-  return new Ledger(sessionId);
+  const ledger = new Ledger(sessionId);
+  process.env.FPNA_RUNTIME = "1";
+  process.env.FPNA_SESSION_ID = ledger.sessionId;
+  return ledger;
 }

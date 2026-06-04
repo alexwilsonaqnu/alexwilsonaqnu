@@ -71,4 +71,11 @@ and **never aliases `cur`/`prev`** (use `fy26`/`fy25`). No CTEs.
 - Inspect ledger: `npm run ledger:show <session-id>`
 - Slash commands: `/variance <grain>` `/reforecast` `/sensitivity <drivers>` `/board <period>` `/prep <meeting>` `/briefing`
 
+## Runtime scoping
+The provenance Stop-gate (matcher `*`) enforces only inside the **FP&A runtime** — when
+`FPNA_RUNTIME=1` or `FPNA_SESSION_ID` is set (the orchestrator/crons/SDK set these via
+`openLedger`). A plain interactive `claude` session in this repo is not gated, so ordinary
+chat that mentions a number isn't blocked. The backstop is undiminished where it matters:
+inside the runtime, an FP&A answer with an empty ledger and stated numbers still blocks.
+
 Everything else lives in skills (triggered, `.claude/skills/`) and docs (referenced), not here.

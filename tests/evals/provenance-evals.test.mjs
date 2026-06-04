@@ -30,7 +30,7 @@ for (const file of cases) {
     const r = runHook(
       "provenance-stop-gate.py",
       { session_id: session, draft: resolved },
-      { FPNA_LEDGER_DIR: dir },
+      { FPNA_LEDGER_DIR: dir, FPNA_RUNTIME: "1" },
     );
     const expectSourced = c.expect.all_numbers_sourced === true;
     assert.equal(
@@ -47,7 +47,7 @@ for (const file of cases) {
     const r = runHook(
       "provenance-stop-gate.py",
       { session_id: session, draft: tampered },
-      { FPNA_LEDGER_DIR: dir },
+      { FPNA_LEDGER_DIR: dir, FPNA_RUNTIME: "1" },
     );
     assert.equal(r.status, 2, r.stderr);
     assert.match(r.stderr, /987,654/);

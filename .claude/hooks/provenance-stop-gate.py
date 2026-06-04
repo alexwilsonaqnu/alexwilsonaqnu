@@ -76,8 +76,30 @@ def token_is_sourced(magnitude: float, facts: list[dict]) -> bool:
     return False
 
 
+def runtime_active() -> bool:
+    """Enforce only inside the FP&A runtime.
+
+    The Stop hook has matcher `*`, so it fires on EVERY agent stop. We only want
+    to vet FP&A *deliverable* outputs — not an ordinary interactive/dev session
+    at the repo root that happens to mention a number ("33 tests pass", "§2B").
+
+    The orchestrator, crons, and the SDK runtime set FPNA_RUNTIME=1 (and a
+    session id); a plain `claude` session does not. CRITICAL: this does NOT
+    weaken the backstop where it matters — inside the runtime, an FP&A answer
+    with an empty ledger and stated numbers (the silently-failed-retrieval case)
+    still blocks. We pass through only OUTSIDE the runtime, where there is no
+    deliverable to protect.
+    """
+    if os.environ.get("FPNA_RUNTIME", "").lower() in ("1", "true", "yes"):
+        return True
+    return bool(os.environ.get("FPNA_SESSION_ID"))
+
+
 def main() -> None:
     payload = read_hook_input()
+
+    if not runtime_active():
+        sys.exit(0)  # not an FP&A deliverable path; nothing to enforce
 
     # draft text: prefer explicit payload/env (tests, headless), else transcript
     draft = (
