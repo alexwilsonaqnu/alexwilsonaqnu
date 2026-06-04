@@ -67,7 +67,9 @@ fi
 if grep -Eiq '(variance|delta|yoy|growth|margin|run.?rate)\s*=\s*[^=]*[-+*/]' <<<"$CMD"; then
   deny "manual variance/growth/margin computation"
 fi
-if grep -Eiq '(actual|budget|forecast|plan|prior|current)[a-z_]*\s*[-+*/]\s*(actual|budget|forecast|plan|prior|current|[a-z_0-9]+)' <<<"$CMD"; then
+# \b anchors keep the keywords whole — "plan" must not match inside "anaplan"
+# (the literal "anaplan-chimera" is not "plan - chimera").
+if grep -Eiq '\b(actual|budget|forecast|plan|prior|current)[a-z_]*\s*[-+*/]\s*\b(actual|budget|forecast|plan|prior|current|[a-z_0-9]+)' <<<"$CMD"; then
   deny "arithmetic across finance series (e.g. actual - budget)"
 fi
 

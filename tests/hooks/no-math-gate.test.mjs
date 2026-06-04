@@ -100,6 +100,16 @@ test("allows find/sort/head pipeline", () => {
   assert.equal(r.status, 0, r.stderr);
 });
 
+test("allows 'anaplan-chimera' literal (plan inside anaplan is not plan - chimera)", () => {
+  const r = runHook("no-math-gate.sh", bash('curl -sw "anaplan-chimera: %{http_code}" https://x.anaplan.com/mcp'));
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("still blocks real finance-series arithmetic at a word boundary", () => {
+  const r = runHook("no-math-gate.sh", bash("echo $(( plan - budget ))"));
+  assert.equal(r.status, 2, r.stderr);
+});
+
 // ---- still BLOCKS real interpreter math (deny is intact) ---------------------
 test("still blocks python literal subtraction even with the context gate", () => {
   const r = runHook("no-math-gate.sh", bash('python3 -c "print(1450000 - 1200000)"'));
