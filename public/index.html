@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FP&A Decision Layer — Office of the CFO</title>
+    <style>
+      :root {
+        --bg: #f5f7fa; --surface: #fff; --border: #e2e8f0; --ink: #0f172a;
+        --soft: #5b6b82; --accent: #0072f0; --ok: #1a7f55; --warn: #b45309;
+        --radius: 10px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+      }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; flex-direction: column; }
+      header { display: flex; align-items: center; justify-content: space-between; padding: .75rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--border); }
+      header strong { display: block; font-size: .95rem; }
+      header .sub { color: var(--soft); font-size: .78rem; }
+      .pill { font-size: .72rem; font-weight: 600; padding: .25rem .6rem; border-radius: 999px; border: 1px solid var(--border); color: var(--soft); }
+      .pill.ok { color: var(--ok); border-color: rgba(26,127,85,.3); background: rgba(26,127,85,.08); }
+      .pill.warn { color: var(--warn); border-color: rgba(180,83,9,.3); background: rgba(180,83,9,.08); }
+      main { flex: 1; display: grid; grid-template-columns: 1fr 26rem; min-height: 0; }
+      @media (max-width: 900px) { main { grid-template-columns: 1fr; } aside { display: none; } }
+      .chat { display: flex; flex-direction: column; min-height: 0; }
+      .messages { flex: 1; overflow-y: auto; padding: 1.5rem; }
+      .welcome { max-width: 36rem; margin: 2rem auto; text-align: center; }
+      .welcome h1 { font-size: 1.5rem; margin: 0 0 .5rem; }
+      .welcome p { color: var(--soft); margin: 0 0 1.25rem; }
+      .chips { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
+      .chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: .45rem .9rem; font-size: .82rem; cursor: pointer; color: var(--ink); }
+      .chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+      .chip:disabled { opacity: .5; cursor: not-allowed; }
+      .bubble { max-width: 46rem; margin: 0 0 1.25rem; }
+      .bubble.user { margin-left: auto; text-align: right; }
+      .role { font-size: .72rem; color: var(--soft); margin-bottom: .25rem; }
+      .text { display: inline-block; text-align: left; white-space: pre-wrap; line-height: 1.55; padding: .75rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+      .user .text { background: var(--accent); color: #fff; border-color: transparent; }
+      .prov { font-size: .72rem; color: var(--soft); margin-top: .35rem; }
+      .activity { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--soft); }
+      .composer { display: flex; gap: .6rem; align-items: flex-end; padding: 1rem 1.5rem; border-top: 1px solid var(--border); background: var(--surface); }
+      .composer textarea { flex: 1; resize: none; font: inherit; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: var(--radius); }
+      .composer textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+      .composer button { font: inherit; font-weight: 600; padding: .6rem 1.1rem; border: none; border-radius: var(--radius); background: var(--accent); color: #fff; cursor: pointer; }
+      .composer button:disabled { opacity: .5; cursor: not-allowed; }
+      aside { background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; min-height: 0; }
+      .lhead { display: flex; align-items: baseline; justify-content: space-between; padding: 1rem 1.25rem .25rem; }
+      .lhead h2 { font-size: .95rem; margin: 0; }
+      .lnote { font-size: .76rem; color: var(--soft); margin: 0; padding: 0 1.25rem .75rem; }
+      .facts { overflow-y: auto; padding: 0 1rem 1rem; }
+      .empty { color: var(--soft); font-size: .85rem; padding: 1.5rem .5rem; text-align: center; }
+      .fact { border: 1px solid var(--border); border-radius: var(--radius); padding: .75rem .85rem; margin-bottom: .7rem; }
+      .fact .top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+      .val { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .src { font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: .18rem .45rem; border-radius: 6px; background: #eef2f7; color: var(--soft); white-space: nowrap; }
+      .src.sql_calcite { background: rgba(0,114,240,.12); color: var(--accent); }
+      .src.scenario_recompute { background: rgba(124,58,237,.12); color: #6d28d9; }
+      .src.explain_cell { background: rgba(180,83,9,.12); color: var(--warn); }
+      .flabel { font-size: .85rem; margin: .3rem 0; }
+      .meta { display: flex; flex-wrap: wrap; gap: .4rem; font-size: .72rem; color: var(--soft); }
+      .fchips { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .5rem; }
+      .fchip { font-size: .72rem; background: #f1f5f9; border-radius: 6px; padding: .15rem .45rem; }
+      .fchip em { color: var(--soft); font-style: normal; margin-right: .2rem; }
+      details summary { font-size: .74rem; color: var(--accent); cursor: pointer; margin-top: .55rem; }
+      details pre { margin: .4rem 0 0; padding: .6rem; background: #0f172a; color: #e2e8f0; border-radius: 8px; font-size: .72rem; overflow-x: auto; white-space: pre-wrap; }
+      .banner { background: #fff7ed; color: var(--warn); border-bottom: 1px solid #fed7aa; padding: .5rem 1.25rem; font-size: .8rem; }
+    </style>
+  </head>
+  <body>
+    <div id="banner" class="banner" style="display:none"></div>
+    <header>
+      <div>
+        <strong>FP&amp;A Decision Layer</strong>
+        <span class="sub">Office of the CFO · every number sourced from Anaplan</span>
+      </div>
+      <span id="pill" class="pill">connecting…</span>
+    </header>
+    <main>
+      <section class="chat">
+        <div id="messages" class="messages">
+          <div class="welcome" id="welcome">
+            <h1>Ask the model. Anaplan answers the numbers.</h1>
+            <p>The model decides what to fetch and how to say it — it never invents a figure.</p>
+            <div class="chips" id="chips"></div>
+          </div>
+        </div>
+        <form class="composer" id="composer">
+          <textarea id="input" rows="2" placeholder="Ask about variance, margin, forecast…"></textarea>
+          <button id="send" type="submit">Ask</button>
+        </form>
+      </section>
+      <aside>
+        <div class="lhead"><h2>Provenance ledger</h2><span id="count" class="sub">0 facts</span></div>
+        <p class="lnote">Every figure in the answer traces to one of these — read from a line item or computed by Anaplan's engine.</p>
+        <div class="facts" id="facts"><div class="empty">No numbers retrieved yet.</div></div>
+      </aside>
+    </main>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let sessionId = null, busy = false;
+      const facts = new Map();
+      const SUGGESTIONS = [
+        "What modules are in this model?",
+        "What was revenue variance to plan last quarter, and why?",
+        "Show gross margin by product family vs prior year.",
+      ];
+
+      function fmt(v) {
+        if (typeof v === "number") {
+          const a = Math.abs(v);
+          return v.toLocaleString(undefined, { maximumFractionDigits: a !== 0 && a < 1 ? 4 : 2 });
+        }
+        return v;
+      }
+      function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
+
+      async function health() {
+        try {
+          const h = await (await fetch("/api/health")).json();
+          const pill = $("pill");
+          if (h.ready) { pill.className = "pill ok"; pill.textContent = (h.model || "live") + " · live"; }
+          else {
+            pill.className = "pill warn"; pill.textContent = "not configured";
+            $("banner").style.display = "block";
+            $("banner").textContent = "Not configured — missing: " + (h.missing || []).join(", ") + ". Run setup to add your Anaplan + API credentials.";
+          }
+          return h.ready;
+        } catch { return false; }
+      }
+
+      function renderChips(disabled) {
+        $("chips").innerHTML = "";
+        SUGGESTIONS.forEach((s) => {
+          const b = document.createElement("button");
+          b.className = "chip"; b.textContent = s; b.disabled = disabled;
+          b.onclick = () => send(s);
+          $("chips").appendChild(b);
+        });
+      }
+
+      function addBubble(role, text) {
+        const w = $("welcome"); if (w) w.remove();
+        const el = document.createElement("div");
+        el.className = "bubble " + role;
+        el.innerHTML = '<div class="role">' + (role === "user" ? "You" : "FP&A Chief of Staff") + '</div><div class="text"></div><div class="prov" style="display:none"></div>';
+        $("messages").appendChild(el);
+        el.querySelector(".text").textContent = text;
+        $("messages").scrollTop = $("messages").scrollHeight;
+        return el;
+      }
+
+      function renderFacts() {
+        const c = $("facts");
+        const list = [...facts.values()];
+        $("count").textContent = list.length + " fact" + (list.length === 1 ? "" : "s");
+        if (!list.length) { c.innerHTML = '<div class="empty">No numbers retrieved yet.</div>'; return; }
+        c.innerHTML = list.map((f) => {
+          const slices = Object.entries(f.intersection || {}).map(([k, v]) => '<span class="fchip"><em>' + esc(k) + '</em> ' + esc(v) + '</span>').join("");
+          const q = f.query ? '<details><summary>Calcite query</summary><pre>' + esc(f.query) + '</pre></details>' : "";
+          return '<div class="fact"><div class="top"><span class="val">' + esc(fmt(f.value)) + '</span><span class="src ' + esc(f.source) + '">' + esc(f.source) + '</span></div>' +
+            '<div class="flabel">' + esc(f.label) + '</div>' +
+            '<div class="meta"><span>' + esc((f.module ? f.module + " · " : "") + f.lineItem) + '</span>' + (f.version ? '<span>' + esc(f.version) + '</span>' : "") + '</div>' +
+            (slices ? '<div class="fchips">' + slices + '</div>' : "") + q + '</div>';
+        }).join("");
+      }
+
+      async function send(text) {
+        const q = (text || "").trim();
+        if (!q || busy) return;
+        $("input").value = ""; busy = true; $("send").disabled = true;
+        addBubble("user", q);
+        const bot = addBubble("assistant", "");
+        const botText = bot.querySelector(".text");
+        let activity = null;
+
+        try {
+          const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, message: q }) });
+          if (!res.ok || !res.body) { botText.textContent = "⚠️ " + ((await res.json().catch(() => ({}))).error || ("HTTP " + res.status)); busy = false; $("send").disabled = false; return; }
+          const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+          for (;;) {
+            const { done, value } = await reader.read(); if (done) break;
+            buf += dec.decode(value, { stream: true });
+            let i;
+            while ((i = buf.indexOf("\n\n")) !== -1) {
+              const frame = buf.slice(0, i); buf = buf.slice(i + 2);
+              const line = frame.split("\n").find((l) => l.startsWith("data:")); if (!line) continue;
+              let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
+              if (ev.type === "start") sessionId = ev.sessionId;
+              else if (ev.type === "tool") { activity = activity || addBubble("assistant", ""); }
+              else if (ev.type === "token") { botText.textContent += ev.text; $("messages").scrollTop = $("messages").scrollHeight; }
+              else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }
+              else if (ev.type === "message" || ev.type === "error") { if (!botText.textContent) botText.textContent = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); }
+            }
+          }
+        } catch (e) { botText.textContent = "⚠️ " + (e.message || e); }
+        if (activity) activity.remove();
+        busy = false; $("send").disabled = false;
+      }
+
+      $("composer").addEventListener("submit", (e) => { e.preventDefault(); send($("input").value); });
+      $("input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); } });
+      (async () => { const ready = await health(); renderChips(!ready); })();
+    </script>
+  </body>
+</html>

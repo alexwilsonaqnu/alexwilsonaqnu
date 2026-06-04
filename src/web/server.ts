@@ -11,6 +11,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, normalize, extname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Ledger } from "../ledger/index.js";
@@ -19,8 +20,14 @@ import { runTurn } from "./agent.js";
 
 // from src/web/server.ts (or dist/web/server.js) → repo root is two dirs up
 const REPO_ROOT = resolve(fileURLToPath(new URL("../..", import.meta.url)));
-const WEB_DIST = join(REPO_ROOT, "web", "dist");
 const PORT = Number(process.env.FPNA_WEB_PORT ?? 8787);
+
+// Serve the built ADS app from web/dist if it has been built; otherwise serve
+// the zero-dependency built-in UI from public/ (works with no frontend build,
+// no private @ads packages — just `npm run web`).
+const WEB_DIST = existsSync(join(REPO_ROOT, "web", "dist", "index.html"))
+  ? join(REPO_ROOT, "web", "dist")
+  : join(REPO_ROOT, "public");
 
 loadLocalEnv(REPO_ROOT);
 

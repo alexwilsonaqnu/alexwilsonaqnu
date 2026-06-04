@@ -65,16 +65,25 @@ version, intersection, and the exact SQL the engine ran.
 - **Frontend** (`web/`): React + the Anaplan Design System (`@ads/react`,
   `@ads/sass`, `@ads/icons`) via Vite.
 
-**Run it:**
+**Easiest (macOS, no command line):** double-click `scripts/setup-mac.command`
+(enter credentials in dialog boxes), then double-click `scripts/start-mac.command`
+(installs deps, launches, opens the browser). Uses the built-in UI below.
+
+**Built-in UI:** the backend serves a zero-dependency UI from `public/` — no
+frontend build, no private `@ads/*` packages. Just `npm run web` → open
+`http://localhost:8787`. The ADS React app (`web/`) is served instead *if* you
+build it (`cd web && pnpm install && pnpm build`).
+
+**Run it (terminal):**
 ```bash
 # 1. credentials — backend env (gitignored settings.local.json + your API key)
 cp .claude/settings.local.json.example .claude/settings.local.json   # fill Anaplan GUIDs + Basic auth (Dev/sandbox)
-export ANTHROPIC_API_KEY=sk-ant-...                                  # or CLAUDE_CODE_OAUTH_TOKEN
+export ANTHROPIC_API_KEY=sk-ant-...                                  # or put it in settings.local.json env
 
-# 2. backend (serves built frontend + /api on :8787)
+# 2. backend + built-in UI on :8787
 npm install && npm run web
 
-# 3. frontend dev server (hot reload, proxies /api → backend) — needs Anaplan registry access for @ads/*
+# 3. (optional) ADS React dev server with hot reload — needs Anaplan registry access for @ads/*
 cd web && pnpm install && pnpm dev        # http://localhost:5173
 ```
 `GET /api/health` reports readiness; the UI shows **live** once Anaplan creds +
