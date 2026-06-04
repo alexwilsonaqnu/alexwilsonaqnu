@@ -47,6 +47,39 @@ npm run typecheck
    `anaplan-ops` (bulk/actions, Bearer token) lands in **Phase 2** — set `ANAPLAN_OPS_TOKEN`
    then add its server block (see `docs/agentic-harnessing-guide.md` / kickoff §11).
 
+## Web app (conversational interface)
+
+A live chat UI with a **provenance ledger panel** that shows every `AnaplanFact`
+behind the answer — value, source (line item / Calcite SQL / recompute / explain),
+version, intersection, and the exact SQL the engine ran.
+
+- **Backend** (`src/web/`): a lean Node server driving the Claude Agent SDK
+  (`@anthropic-ai/claude-agent-sdk`). It loads the project `.claude/` harness
+  (Chimera MCP, hooks, the `anaplan-retriever` subagent), runs one orchestrator
+  turn per message, streams tokens over SSE, and surfaces the session ledger.
+  Read-only: writes/mutations are denied in the web path (Phase 2).
+- **Frontend** (`web/`): React + the Anaplan Design System (`@ads/react`,
+  `@ads/sass`, `@ads/icons`) via Vite.
+
+**Run it:**
+```bash
+# 1. credentials — backend env (gitignored settings.local.json + your API key)
+cp .claude/settings.local.json.example .claude/settings.local.json   # fill Anaplan GUIDs + Basic auth (Dev/sandbox)
+export ANTHROPIC_API_KEY=sk-ant-...                                  # or CLAUDE_CODE_OAUTH_TOKEN
+
+# 2. backend (serves built frontend + /api on :8787)
+npm install && npm run web
+
+# 3. frontend dev server (hot reload, proxies /api → backend) — needs Anaplan registry access for @ads/*
+cd web && pnpm install && pnpm dev        # http://localhost:5173
+```
+`GET /api/health` reports readiness; the UI shows **live** once Anaplan creds +
+an API key are present. Configure `FPNA_MODEL` to override the model
+(default `claude-opus-4-8`), `FPNA_WEB_PORT` to change the port.
+
+> The `@ads/*` packages resolve from Anaplan's internal registry (`workspace:^1.1.0`,
+> per `docs/anaplan-mcp-setup`); install them where you have that access.
+
 ## How it works (the calculation hierarchy, §4)
 A delta/variance/%/YoY is sourced, never computed: **(1)** read a structural line item that
 already holds it (prefer REP/OUT modules) → **(2)** if none, one Calcite query returns it

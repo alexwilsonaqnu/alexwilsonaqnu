@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 dist/
+web/node_modules/
+web/dist/
+*.tsbuildinfo
 
 # secrets, GUIDs, tokens — never commit (§11)
 .claude/settings.local.json

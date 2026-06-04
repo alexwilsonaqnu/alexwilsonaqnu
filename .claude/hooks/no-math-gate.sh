@@ -72,23 +72,32 @@ if grep -Eiq '(actual|budget|forecast|plan|prior|current)[a-z_]*\s*[-+*/]\s*(act
 fi
 
 # ----------------------------------------------------------------------------
-# 3) raw number-operator-number, after masking non-arithmetic digit contexts.
-#    Mask: ISO dates, FY/Q period ids, version pins (x.y.z), CLI flags (-N).
+# 3) raw number-operator-number — ONLY in an arithmetic-evaluation context.
+#    Plain file/text tooling (grep, find, unzip, ...) is never "math destined
+#    for output": a UUID path or a regex char class like [0-9] is not a
+#    subtraction. So this rule fires only when the command actually evaluates
+#    arithmetic (an interpreter, bc/expr/let, or shell $(( ))). The finance
+#    rules above stay global. This widens the ALLOW list; it does not loosen
+#    the DENY on real computation (python literal math is still caught).
 # ----------------------------------------------------------------------------
-MASKED="$(
+if grep -Eiq '(^|[^[:alnum:]_])(python3?|node|deno|bun|ruby|perl|php|bc|expr|let)\b|\$\(\(|awk[^|]*print' <<<"$CMD"; then
+  # mask non-arithmetic digit contexts before the literal check
+  MASKED="$(
 python3 - "$CMD" <<'PY'
 import re, sys
 c = sys.argv[1]
-c = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', ' ', c)            # ISO dates
+c = re.sub(r'\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b', ' ', c)  # UUIDs
+c = re.sub(r'\[[^\]]*\]', ' ', c)                      # bracketed: regex char classes [0-9], indices a[1-2]
+c = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', ' ', c)           # ISO dates
 c = re.sub(r'(?i)\b(?:FY|Q|H|CY|P)\s?\d{1,4}\b', ' ', c)  # period ids
 c = re.sub(r'\b\d+\.\d+\.\d+\b', ' ', c)               # semver
-c = re.sub(r'(^|\s)-\d+\b', ' ', c)                     # negative flags / args
-c = re.sub(r'\b\w+\[[^\]]*\]', ' ', c)                  # index expressions a[1-2]
+c = re.sub(r'(^|\s)-\d+\b', ' ', c)                    # negative flags / args
 print(c)
 PY
 )"
-if grep -Eq '[0-9][0-9,]*(\.[0-9]+)?[[:space:]]*[-+*/][[:space:]]*[0-9]' <<<"$MASKED"; then
-  deny "literal arithmetic (number operator number)"
+  if grep -Eq '[0-9][0-9,]*(\.[0-9]+)?[[:space:]]*[-+*/][[:space:]]*[0-9]' <<<"$MASKED"; then
+    deny "literal arithmetic (number operator number)"
+  fi
 fi
 
 exit 0

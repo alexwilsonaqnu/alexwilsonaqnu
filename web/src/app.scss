@@ -1,0 +1,173 @@
+// App layout + component styles. ADS provides global typography/colour via
+// `@forward "@ads/sass"`; these styles handle structure and the provenance view.
+// Custom properties carry fallbacks so the app is presentable even before ADS
+// tokens resolve.
+
+:root {
+  --fpna-bg: #f5f7fa;
+  --fpna-surface: #ffffff;
+  --fpna-border: #e2e8f0;
+  --fpna-ink: #0f172a;
+  --fpna-ink-soft: #5b6b82;
+  --fpna-accent: #0072f0; // Anaplan blue
+  --fpna-accent-ink: #ffffff;
+  --fpna-ok: #1a7f55;
+  --fpna-warn: #b45309;
+  --fpna-radius: 10px;
+  --fpna-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 16px rgba(15, 23, 42, 0.06);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--fpna-bg);
+  color: var(--fpna-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.fpna {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.fpna__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.25rem;
+  background: var(--fpna-surface);
+  border-bottom: 1px solid var(--fpna-border);
+}
+.fpna__brand { display: flex; align-items: center; gap: 0.75rem; }
+.fpna__brand strong { display: block; font-size: 0.95rem; }
+.fpna__sub { color: var(--fpna-ink-soft); font-size: 0.78rem; }
+
+.pill {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--fpna-border);
+}
+.pill--ok { color: var(--fpna-ok); border-color: rgba(26, 127, 85, 0.3); background: rgba(26, 127, 85, 0.08); }
+.pill--warn { color: var(--fpna-warn); border-color: rgba(180, 83, 9, 0.3); background: rgba(180, 83, 9, 0.08); }
+.pill--muted { color: var(--fpna-ink-soft); }
+
+.fpna__grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 26rem;
+  min-height: 0;
+}
+@media (max-width: 900px) {
+  .fpna__grid { grid-template-columns: 1fr; }
+  .fpna__ledger { display: none; }
+}
+
+// ---- chat ------------------------------------------------------------------
+.fpna__chat { display: flex; flex-direction: column; min-height: 0; }
+.fpna__messages { flex: 1; overflow-y: auto; padding: 1.5rem; }
+
+.fpna__welcome { max-width: 36rem; margin: 2rem auto; text-align: center; }
+.fpna__welcome h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
+.fpna__welcome p { color: var(--fpna-ink-soft); margin: 0 0 1.25rem; }
+.fpna__chips { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+.chip {
+  border: 1px solid var(--fpna-border);
+  background: var(--fpna-surface);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.82rem;
+  color: var(--fpna-ink);
+  cursor: pointer;
+}
+.chip:hover:not(:disabled) { border-color: var(--fpna-accent); color: var(--fpna-accent); }
+.chip:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.bubble { max-width: 46rem; margin: 0 0 1.25rem; }
+.bubble--user { margin-left: auto; text-align: right; }
+.bubble__role { font-size: 0.72rem; color: var(--fpna-ink-soft); margin-bottom: 0.25rem; }
+.bubble__text {
+  display: inline-block;
+  text-align: left;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  padding: 0.75rem 1rem;
+  border-radius: var(--fpna-radius);
+  background: var(--fpna-surface);
+  border: 1px solid var(--fpna-border);
+  box-shadow: var(--fpna-shadow);
+}
+.bubble--user .bubble__text { background: var(--fpna-accent); color: var(--fpna-accent-ink); border-color: transparent; }
+.bubble__prov { font-size: 0.72rem; color: var(--fpna-ink-soft); margin-top: 0.35rem; }
+.bubble__caret {
+  display: inline-block; width: 0.5rem; height: 1rem; background: var(--fpna-accent);
+  animation: blink 1s steps(2) infinite; vertical-align: text-bottom;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+.fpna__activity {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.8rem; color: var(--fpna-ink-soft);
+}
+.fpna__activity .icon { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fpna__composer {
+  display: flex; gap: 0.6rem; align-items: flex-end;
+  padding: 1rem 1.5rem; border-top: 1px solid var(--fpna-border); background: var(--fpna-surface);
+}
+.fpna__composer textarea {
+  flex: 1; resize: none; font: inherit; padding: 0.6rem 0.75rem;
+  border: 1px solid var(--fpna-border); border-radius: var(--fpna-radius); color: var(--fpna-ink);
+}
+.fpna__composer textarea:focus { outline: 2px solid var(--fpna-accent); border-color: transparent; }
+
+// ---- provenance ledger -----------------------------------------------------
+.fpna__ledger {
+  background: var(--fpna-surface);
+  border-left: 1px solid var(--fpna-border);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.fpna__ledger-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  padding: 1rem 1.25rem 0.25rem;
+}
+.fpna__ledger-head h2 { font-size: 0.95rem; margin: 0; }
+.fpna__count { font-size: 0.75rem; color: var(--fpna-ink-soft); }
+.fpna__ledger-note { font-size: 0.76rem; color: var(--fpna-ink-soft); margin: 0; padding: 0 1.25rem 0.75rem; }
+.fpna__facts { overflow-y: auto; padding: 0 1rem 1rem; }
+.fpna__empty { color: var(--fpna-ink-soft); font-size: 0.85rem; padding: 1.5rem 0.5rem; text-align: center; }
+
+.fact {
+  border: 1px solid var(--fpna-border);
+  border-radius: var(--fpna-radius);
+  padding: 0.75rem 0.85rem;
+  margin-bottom: 0.7rem;
+  background: var(--fpna-surface);
+}
+.fact__top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.fact__value { font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fact__src {
+  font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 0.18rem 0.45rem; border-radius: 6px; white-space: nowrap;
+  background: #eef2f7; color: var(--fpna-ink-soft);
+}
+.fact__src--sql_calcite { background: rgba(0, 114, 240, 0.12); color: var(--fpna-accent); }
+.fact__src--scenario_recompute { background: rgba(124, 58, 237, 0.12); color: #6d28d9; }
+.fact__src--explain_cell { background: rgba(180, 83, 9, 0.12); color: var(--fpna-warn); }
+.fact__label { font-size: 0.85rem; margin: 0.3rem 0; }
+.fact__meta { display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.72rem; color: var(--fpna-ink-soft); }
+.fact__ver { padding: 0 0.4rem; border-left: 1px solid var(--fpna-border); }
+.fact__chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.5rem; }
+.fact__chip {
+  font-size: 0.72rem; background: #f1f5f9; border-radius: 6px; padding: 0.15rem 0.45rem;
+}
+.fact__chip em { color: var(--fpna-ink-soft); font-style: normal; margin-right: 0.2rem; }
+.fact__query { margin-top: 0.55rem; }
+.fact__query summary { font-size: 0.74rem; color: var(--fpna-accent); cursor: pointer; }
+.fact__query pre {
+  margin: 0.4rem 0 0; padding: 0.6rem; background: #0f172a; color: #e2e8f0;
+  border-radius: 8px; font-size: 0.72rem; overflow-x: auto; white-space: pre-wrap;
+}

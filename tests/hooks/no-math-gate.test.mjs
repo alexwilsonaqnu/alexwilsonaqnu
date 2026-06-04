@@ -80,3 +80,33 @@ test("no command → pass", () => {
   const r = runHook("no-math-gate.sh", { tool_name: "Bash", tool_input: {} });
   assert.equal(r.status, 0, r.stderr);
 });
+
+// ---- ALLOWS: dev tooling whose digits aren't arithmetic (allow-list widening) ----
+test("allows grep with a regex char class [0-9] (not 0 minus 9)", () => {
+  const r = runHook("no-math-gate.sh", bash("grep -oE -- '--[a-zA-Z0-9_-]+' assets/*.css"));
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("allows unzip of a path containing a UUID (e.g. 0732cf30-4a17-4830-bfdb-a83d6acf8288)", () => {
+  const r = runHook(
+    "no-math-gate.sh",
+    bash("unzip -o -q /root/.claude/uploads/0732cf30-4a17-4830-bfdb-a83d6acf8288/x.zip -d /tmp/ds"),
+  );
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("allows find/sort/head pipeline", () => {
+  const r = runHook("no-math-gate.sh", bash("find . -type f | sort | head -50"));
+  assert.equal(r.status, 0, r.stderr);
+});
+
+// ---- still BLOCKS real interpreter math (deny is intact) ---------------------
+test("still blocks python literal subtraction even with the context gate", () => {
+  const r = runHook("no-math-gate.sh", bash('python3 -c "print(1450000 - 1200000)"'));
+  assert.equal(r.status, 2, r.stderr);
+});
+
+test("still blocks shell annualization $((monthly * 12))", () => {
+  const r = runHook("no-math-gate.sh", bash("echo $(( 1000000 * 12 ))"));
+  assert.equal(r.status, 2, r.stderr);
+});

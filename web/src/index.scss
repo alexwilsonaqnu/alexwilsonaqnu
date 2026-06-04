@@ -1,0 +1,6 @@
+// ADS foundations: icons + the full Anaplan Design System styles (typography,
+// colour tokens, spacing, component CSS). Per docs/anaplan-mcp-setup Installation.
+@forward "@ads/icons/css/styles.scss";
+@forward "@ads/sass";
+
+@forward "./app.scss";
