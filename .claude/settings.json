@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-opus-4-8",
+  "permissions": {
+    "deny": [
+      "Bash(*production*)",
+      "mcp__anaplan-ops__delete_list_items",
+      "mcp__anaplan-ops__run_delete",
+      "mcp__anaplan-ops__bulk_delete_models",
+      "mcp__anaplan-ops__close_model",
+      "mcp__anaplan-ops__set_currentperiod",
+      "mcp__anaplan-ops__set_fiscalyear",
+      "mcp__anaplan-ops__reset_list_index"
+    ],
+    "ask": [
+      "mcp__anaplan-chimera__aocfo_cell_write",
+      "mcp__anaplan-ops__write_cells",
+      "mcp__anaplan-ops__run_import",
+      "mcp__anaplan-ops__run_process"
+    ]
+  },
+  "mcpServers": {
+    "anaplan-chimera": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://us1a.app-chimera.anaplan.com/internal-api-gateway-core/modeling-mcp-service/mcp",
+        "--header",
+        "Authorization: Basic ${ANAPLAN_BASIC_AUTH}",
+        "--header",
+        "x-workspace-guid: ${ANAPLAN_WS_GUID}",
+        "--header",
+        "x-model-guid: ${ANAPLAN_MODEL_GUID}",
+        "--header",
+        "x-traceid: fpna-agents",
+        "--header",
+        "x-tracepath: fpna-agents"
+      ]
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "mcp__anaplan-.*",
+        "hooks": [
+          { "type": "command", "command": "./.claude/hooks/ledger-append.py", "timeout": 15 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "./.claude/hooks/no-math-gate.sh", "timeout": 5 }
+        ]
+      },
+      {
+        "matcher": "mcp__anaplan-.*(write|import|process|delete|close|set_|reset).*",
+        "hooks": [
+          { "type": "command", "command": "./.claude/hooks/scenario-write-guard.sh", "timeout": 5 }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./.claude/hooks/provenance-stop-gate.py", "timeout": 120 }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          { "type": "command", "command": "./.claude/hooks/backup-ledger.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

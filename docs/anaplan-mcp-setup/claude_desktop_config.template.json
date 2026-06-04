@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "anaplan-chimera": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://us1a.app-chimera.anaplan.com/internal-api-gateway-core/modeling-mcp-service/mcp",
+        "--header",
+        "Authorization: Basic ###BASE_64_AUTH_STRING###",
+        "--header",
+        "x-workspace-guid: <YOUR_WORKSPACE_GUID>",
+        "--header",
+        "x-model-guid: <YOUR_MODEL_GUID>",
+        "--header",
+        "x-traceid: claude-mcp",
+        "--header",
+        "x-tracepath: claude"
+      ]
+    }
+  }
+}

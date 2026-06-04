@@ -1,0 +1,9 @@
+{
+  "//": "Copy to settings.local.json (gitignored) and fill in. Secrets/GUIDs/tokens NEVER go in settings.json, code, or transcripts (§11). Basic auth = base64(username:password), injected out-of-band.",
+  "env": {
+    "ANAPLAN_BASIC_AUTH": "<base64(username:password)>",
+    "ANAPLAN_WS_GUID": "<workspace guid>",
+    "ANAPLAN_MODEL_GUID": "<DEV/SANDBOX model guid — never production>",
+    "ANAPLAN_OPS_TOKEN": "<bearer token, Phase 2 only>"
+  }
+}

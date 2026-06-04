@@ -1,0 +1,16 @@
+{
+  "description": "Skill-triggering evals (§13). 60/40 train/test. Each prompt should fire the expected skill(s). Iterate skill descriptions until they fire; vendored Chimera skills are fixed.",
+  "split": { "train": 0.6, "test": 0.4 },
+  "cases": [
+    { "id": "t01", "split": "train", "prompt": "Why did EMEA gross margin drop in Q3?", "expect": ["anaplan-variance-bridge", "anaplan-cell-explainer", "numeric-provenance"] },
+    { "id": "t02", "split": "train", "prompt": "Show me revenue variance to plan by product family for FY26.", "expect": ["anaplan-variance-bridge", "anaplan-module-querier", "numeric-provenance"] },
+    { "id": "t03", "split": "train", "prompt": "What's the unit price of the Nutzo Bar in New York?", "expect": ["anaplan-module-querier"] },
+    { "id": "t04", "split": "train", "prompt": "Which periods exist in the model and what versions are configured?", "expect": ["anaplan-entity-explorer"] },
+    { "id": "t05", "split": "train", "prompt": "Explain how Margin % for Sours in Europe FY20 is calculated.", "expect": ["anaplan-cell-explainer"] },
+    { "id": "t06", "split": "train", "prompt": "Build me the board variance bridge for Q3 with ranked drivers.", "expect": ["anaplan-variance-bridge", "numeric-provenance"] },
+    { "id": "t07", "split": "test", "prompt": "How did actual revenue compare to forecast last quarter, and why?", "expect": ["anaplan-variance-bridge", "anaplan-cell-explainer", "numeric-provenance"] },
+    { "id": "t08", "split": "test", "prompt": "Rank the top 10 SKUs by YoY margin delta.", "expect": ["anaplan-module-querier", "numeric-provenance"] },
+    { "id": "t09", "split": "test", "prompt": "What are the exact member names on the G2 Country list?", "expect": ["anaplan-entity-explorer"] },
+    { "id": "t10", "split": "test", "prompt": "Write the new volume assumption into the Forecast version for next year.", "expect": ["anaplan-cell-writer", "numeric-provenance"] }
+  ]
+}

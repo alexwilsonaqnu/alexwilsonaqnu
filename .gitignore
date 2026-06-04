@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+dist/
+
+# secrets, GUIDs, tokens — never commit (§11)
+.claude/settings.local.json
+.env
+.env.*
+
+# run-scoped provenance ledger and backups (regenerated per session)
+.fpna/ledger/*.jsonl
+.fpna/backups/
+
+# generated board packs / dossiers
+outputs/
+
+# python bytecode (hooks)
+__pycache__/
+*.pyc
+
+# OS / editor
+.DS_Store
+*.log

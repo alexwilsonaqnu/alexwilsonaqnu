@@ -1,0 +1,49 @@
+# OTel GenAI collector config (§12). Day-one observability.
+# Wrap the top-level run in an invoke_agent span; OpenLLMetry instruments the
+# Anthropic client; manual spans on each Anaplan tool call propagate W3C Trace
+# Context so MCP spans nest under the agent. Every Anaplan span is stamped with
+# the requestId that links to the ledger fact, plus module/lineItem/version and
+# gen_ai.usage.cache_read_input_tokens (prompt-cache hit rate).
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+  # cap + sample prompt bodies — they ride as span EVENTS, never attributes.
+  attributes/strip-prompts:
+    actions:
+      - key: gen_ai.prompt
+        action: delete
+      - key: gen_ai.completion
+        action: delete
+
+exporters:
+  debug:
+    verbosity: normal
+  # point these at your backend (Honeycomb/Grafana/Datadog/etc.)
+  otlphttp/backend:
+    endpoint: ${env:OTEL_BACKEND_ENDPOINT}
+    headers:
+      authorization: ${env:OTEL_BACKEND_AUTH}
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [attributes/strip-prompts, batch]
+      exporters: [debug, otlphttp/backend]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, otlphttp/backend]
+
+# Dashboards to stand up from the start (§12):
+#   1. unsourced-number blocks  +  no-math blocks  per session  (SkillOpt signal → trend to 0)
+#   2. write-gate denials
+#   3. tokens/session by model + cache-hit rate  +  tool-call-frequency anomalies (loop detection)

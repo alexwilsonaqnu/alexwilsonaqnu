@@ -1,0 +1,30 @@
+{
+  "id": "pe01",
+  "question": "EMEA revenue variance to plan, Q3 FY26",
+  "ledger": [
+    {
+      "value": 1450000, "label": "EMEA Q3 FY26 revenue (Actual)",
+      "workspaceId": "ws", "modelId": "dev", "module": "REP01 Country Margin Report",
+      "lineItem": "Revenue", "intersection": { "G2 Country": "Europe", "Time": "Q3 FY26" },
+      "version": "Actual", "source": "line_item",
+      "requestId": "req_a", "fetchedAt": "2026-06-04T00:00:00Z"
+    },
+    {
+      "value": 1200000, "label": "EMEA Q3 FY26 revenue (Budget)",
+      "workspaceId": "ws", "modelId": "dev", "module": "REP01 Country Margin Report",
+      "lineItem": "Revenue", "intersection": { "G2 Country": "Europe", "Time": "Q3 FY26" },
+      "version": "Budget", "source": "line_item",
+      "requestId": "req_b", "fetchedAt": "2026-06-04T00:00:00Z"
+    },
+    {
+      "value": 250000, "label": "EMEA Q3 FY26 revenue variance to plan",
+      "workspaceId": "ws", "modelId": "dev", "module": "REP01 Country Margin Report",
+      "lineItem": "revenue_variance", "intersection": { "G2 Country": "Europe", "Time": "Q3 FY26" },
+      "version": "Actual", "source": "sql_calcite",
+      "query": "SELECT a.\"revenue\" - p.\"revenue\" AS revenue_variance FROM \"t\" a JOIN \"t\" p ON 1=1 WHERE a.\"versions\"='Actual' AND p.\"versions\"='Budget' AND a.\"g2 country\"='Europe' AND p.\"g2 country\"='Europe' AND a.\"time\"='Q3 FY26' AND p.\"time\"='Q3 FY26'",
+      "requestId": "req_c", "fetchedAt": "2026-06-04T00:00:00Z"
+    }
+  ],
+  "answer": "EMEA revenue in Q3 FY26 came in at {{fact:req_a}} against a plan of {{fact:req_b}}, a favorable variance of {{fact:req_c}}.",
+  "expect": { "all_numbers_sourced": true, "llm_computed_deltas": 0 }
+}
