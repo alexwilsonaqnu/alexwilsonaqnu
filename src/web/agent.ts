@@ -30,9 +30,18 @@ export type AgentEvent =
 // (e.g. an Opus tier) if your account has access.
 const MODEL = process.env.FPNA_MODEL ?? "claude-sonnet-4-6";
 
+const WS_GUID = process.env.ANAPLAN_WS_GUID ?? "";
+const MODEL_GUID = process.env.ANAPLAN_MODEL_GUID ?? "";
+
 const ORCHESTRATOR_BRIEF = `
 You are the FP&A Chief of Staff. You BOTH retrieve and narrate. Answer the user's
 finance question in a crisp CFO register.
+
+MODEL BINDING: the Anaplan workspace and model are configured. If
+aocfo_get_model_context returns a null workspaceId or modelId, BIND them yourself
+by calling aocfo_set_model_context with workspace id "${WS_GUID}" and model id
+"${MODEL_GUID}" (use whatever parameter names that tool exposes), then continue.
+NEVER ask the user for workspace/model IDs — they are already configured.
 
 RETRIEVE DIRECTLY — do not delegate to a subagent. Call the Anaplan tools yourself
 (mcp__anaplan-chimera__aocfo_*). Follow the calculation hierarchy from the

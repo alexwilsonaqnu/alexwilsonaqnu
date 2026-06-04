@@ -9,7 +9,7 @@
  * The no-math gate and provenance Stop-gate (file hooks) still run on top of this.
  */
 
-/** Anaplan Chimera read/explore tools the retriever needs. */
+/** Anaplan Chimera read/explore tools the lead needs. */
 const CHIMERA_READ = [
   "aocfo_catalog_modules",
   "aocfo_catalog_line_items",
@@ -19,6 +19,10 @@ const CHIMERA_READ = [
   "aocfo_sql_query",
   "aocfo_explain_cell",
   "aocfo_get_model_context",
+  // binds which workspace/model to read — needed when the connection headers
+  // don't auto-bind (get_model_context returns null). Selects a model to READ;
+  // it mutates no data, so it's allowed in the read path.
+  "aocfo_set_model_context",
 ];
 
 /**
@@ -36,12 +40,13 @@ export const ALLOWED_TOOLS = [
   ...CHIMERA_READ.map((t) => `mcp__anaplan-chimera__${t}`),
 ];
 
-/** Anything that mutates: denied in the web read path. */
+/** Anything that mutates data: denied in the web read path. */
 export const DISALLOWED_TOOLS = [
   "mcp__anaplan-chimera__aocfo_cell_write",
-  "mcp__anaplan-chimera__aocfo_set_model_context",
 ];
 
+// set_model_context is intentionally NOT matched here (it binds a model to read,
+// not a data mutation); the dangerous set_* ops are caught explicitly.
 const WRITE_RE = /(write|import|process|delete|close_model|set_currentperiod|set_fiscalyear|reset_index)/i;
 
 type Decision =
