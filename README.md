@@ -94,15 +94,20 @@ an API key are present. Configure `FPNA_MODEL` to override the model
 > The `@ads/*` packages resolve from Anaplan's internal registry (`workspace:^1.1.0`,
 > per `docs/anaplan-mcp-setup`); install them where you have that access.
 
-### Network requirement (important)
-The backend reaches Anaplan via `mcp-remote` to **`us1a.app-chimera.anaplan.com`**.
-The host running the backend **must be allowed to reach that host.** A sandboxed
-environment with an egress allowlist (e.g. Claude Code on the web with a
-restricted network policy) returns `Host not in allowlist (403)` and the MCP
-server shows `status: failed` — the agent then has no `aocfo_*` tools. Run the
-backend **locally**, or on an environment whose network policy allowlists
-`*.anaplan.com`. Verify with `GET /api/health` (creds) and watch the server log
-for a successful MCP connection.
+### Two Anaplan surfaces
+The web backend can read Anaplan through either MCP surface; it **prefers the ops
+server when `ANAPLAN_OPS_TOKEN` is set**, else falls back to Chimera.
+
+| Surface | Endpoint | Auth | Reach | Tools |
+|---|---|---|---|---|
+| **anaplan-ops** (preferred) | public Azure (`anaplan-mcp…azurecontainerapps.io`) | Bearer token | **No VPN**, plain HTTP, no subprocess | `show_*`, `read_cells`, `run_export` (read-only; mutations denied) |
+| **anaplan-chimera** | internal (`us1a.app-chimera.anaplan.com`) | Basic auth | **Needs Anaplan VPN**, via `mcp-remote` | Calcite SQL `aocfo_*` |
+
+Either way the host must be able to reach the chosen endpoint. A restricted egress
+allowlist returns `Host not in allowlist (403)` and the MCP server shows
+`status: failed`. The chat UI surfaces this connection status on the first turn;
+`GET /api/health` reports which `surface` is configured. The **ops** surface has
+no SQL, so variance is read from a stored line item (structure-first), never computed.
 
 ## How it works (the calculation hierarchy, §4)
 A delta/variance/%/YoY is sourced, never computed: **(1)** read a structural line item that

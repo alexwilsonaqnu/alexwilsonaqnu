@@ -186,6 +186,16 @@
               const line = frame.split("\n").find((l) => l.startsWith("data:")); if (!line) continue;
               let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
               if (ev.type === "start") sessionId = ev.sessionId;
+              else if (ev.type === "mcp") {
+                const ana = (ev.servers || []).find((s) => /anaplan/.test(s.name)) || (ev.servers || [])[0];
+                const b = $("banner");
+                if (!ana) { b.style.display = "block"; b.textContent = "⚠ No Anaplan MCP server is configured."; }
+                else if (/connect|ready|ok/i.test(ana.status)) { b.style.display = "none"; }
+                else {
+                  b.style.display = "block";
+                  b.textContent = "⚠ Anaplan MCP server '" + ana.name + "' is " + ana.status + " — not connected. If it's the Chimera (VPN) server, connect to the Anaplan VPN; the ops server should work without VPN.";
+                }
+              }
               else if (ev.type === "tool") { activity = activity || addBubble("assistant", ""); }
               else if (ev.type === "token") { botText.textContent += ev.text; $("messages").scrollTop = $("messages").scrollHeight; }
               else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }

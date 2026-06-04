@@ -7,25 +7,29 @@ ask()    { osascript -e "display dialog \"$1\" default answer \"$2\" buttons {\"
 hidden() { osascript -e "display dialog \"$1\" default answer \"\" with hidden answer buttons {\"OK\"} default button 1" -e 'text returned of result' 2>/dev/null; }
 note()   { osascript -e "display dialog \"$1\" buttons {\"OK\"} default button 1" 2>/dev/null; }
 
-note "Let's set up your credentials. You'll be asked for 5 things. They are saved only on this Mac."
+note "Let's set up your credentials. Saved only on this Mac. The first 4 are required; the last 2 are optional."
 
-EMAIL=$(ask "1 of 5 — Your Anaplan login email:" "")
-[ -z "$EMAIL" ] && { note "Cancelled."; exit 1; }
-PASS=$(hidden "2 of 5 — Your Anaplan password (hidden):")
-WS=$(ask "3 of 5 — Anaplan Workspace ID:" "")
-MODEL=$(ask "4 of 5 — Anaplan Model ID (use your Dev / sandbox model):" "")
-KEY=$(ask "5 of 5 — Anthropic API key (starts with sk-ant-):" "")
+KEY=$(ask "1 of 6 — Anthropic API key (starts with sk-ant-):" "")
+WS=$(ask "2 of 6 — Anaplan Workspace ID:" "")
+MODEL=$(ask "3 of 6 — Anaplan Model ID (your Dev / sandbox model):" "")
+OPS=$(ask "4 of 6 — Anaplan ops Bearer token (the public server — no VPN needed):" "")
 
-AUTH=$(printf '%s' "$EMAIL:$PASS" | base64 | tr -d '\n')
+note "Optional: the next 2 are only for the internal Chimera SQL server (needs Anaplan VPN). Leave blank to skip."
+EMAIL=$(ask "5 of 6 — (optional) Anaplan login email — for the Chimera VPN server:" "")
+PASS=$(hidden "6 of 6 — (optional) Anaplan password — for the Chimera VPN server:")
+
+AUTH=""
+[ -n "$EMAIL" ] && AUTH=$(printf '%s' "$EMAIL:$PASS" | base64 | tr -d '\n')
 
 mkdir -p .claude
 cat > .claude/settings.local.json <<JSON
 {
   "env": {
-    "ANAPLAN_BASIC_AUTH": "$AUTH",
+    "ANTHROPIC_API_KEY": "$KEY",
     "ANAPLAN_WS_GUID": "$WS",
     "ANAPLAN_MODEL_GUID": "$MODEL",
-    "ANTHROPIC_API_KEY": "$KEY"
+    "ANAPLAN_OPS_TOKEN": "$OPS",
+    "ANAPLAN_BASIC_AUTH": "$AUTH"
   }
 }
 JSON

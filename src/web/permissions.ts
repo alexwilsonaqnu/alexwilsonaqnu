@@ -53,18 +53,24 @@ type Decision =
   | { behavior: "allow"; updatedInput: Record<string, unknown> }
   | { behavior: "deny"; message: string };
 
+import { OPS_READ_RE, OPS_DENY_RE } from "../mcp/ops.js";
+
 /**
- * canUseTool backstop: allow the read surface, deny mutations and anything
- * unrecognised. The SDK requires an allow decision to echo the (possibly
- * unchanged) tool input as `updatedInput`.
+ * canUseTool backstop: allow the read surface (Chimera aocfo_* reads AND the
+ * anaplan-ops show_/read_cells/run_export/get_ surface), deny every mutation and
+ * anything unrecognised. The SDK requires an allow decision to echo the
+ * (possibly unchanged) tool input as `updatedInput`.
  */
 export function canUseTool(toolName: string, input: Record<string, unknown>): Decision {
   const allow: Decision = { behavior: "allow", updatedInput: input };
   if (ALLOWED_TOOLS.includes(toolName)) return allow;
-  if (WRITE_RE.test(toolName) || DISALLOWED_TOOLS.includes(toolName)) {
+  // explicit mutation/destructive denials (both surfaces)
+  if (WRITE_RE.test(toolName) || DISALLOWED_TOOLS.includes(toolName) || OPS_DENY_RE.test(toolName)) {
     return { behavior: "deny", message: `${toolName} is a write/mutation — denied in the read-only web session (Phase 2, gated).` };
   }
-  // unknown Anaplan reads (forward-compat) → allow; everything else → deny
-  if (/^mcp__anaplan-chimera__aocfo_(catalog|sql|explain|get)/.test(toolName)) return allow;
+  // ops read surface (public Azure endpoint)
+  if (OPS_READ_RE.test(toolName)) return allow;
+  // unknown Chimera reads (forward-compat) → allow; everything else → deny
+  if (/^mcp__anaplan-chimera__aocfo_(catalog|sql|explain|get|set_model_context)/.test(toolName)) return allow;
   return { behavior: "deny", message: `${toolName} is not permitted in the read-only web session.` };
 }

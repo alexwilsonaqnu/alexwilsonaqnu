@@ -14,13 +14,15 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { Ledger, type AnaplanFact } from "../ledger/index.js";
 import { openLedger } from "../orchestrator.js";
-import { chimeraServerConfig } from "../mcp/chimera.js";
+import { chimeraServerConfig, chimeraEnv } from "../mcp/chimera.js";
+import { opsServerConfig, opsToken } from "../mcp/ops.js";
 import { ALLOWED_TOOLS, DISALLOWED_TOOLS, canUseTool } from "./permissions.js";
 import { buildHooks } from "./hooks-bridge.js";
 
 export type AgentEvent =
   | { type: "token"; text: string }
   | { type: "tool"; name: string; phase: "start" }
+  | { type: "mcp"; servers: { name: string; status: string }[] }
   | { type: "facts"; facts: AnaplanFact[] }
   | { type: "message"; text: string }
   | { type: "error"; message: string }
@@ -33,30 +35,62 @@ const MODEL = process.env.FPNA_MODEL ?? "claude-sonnet-4-6";
 const WS_GUID = process.env.ANAPLAN_WS_GUID ?? "";
 const MODEL_GUID = process.env.ANAPLAN_MODEL_GUID ?? "";
 
-const ORCHESTRATOR_BRIEF = `
-You are the FP&A Chief of Staff. You BOTH retrieve and narrate. Answer the user's
-finance question in a crisp CFO register.
+/** anaplan-ops surface (public Azure endpoint, no VPN, no subprocess). */
+const OPS_BRIEF = `
+You are the FP&A Chief of Staff. You BOTH retrieve and narrate, in a crisp CFO register.
 
-MODEL BINDING: the Anaplan workspace and model are configured. If
-aocfo_get_model_context returns a null workspaceId or modelId, BIND them yourself
-by calling aocfo_set_model_context with workspace id "${WS_GUID}" and model id
-"${MODEL_GUID}" (use whatever parameter names that tool exposes), then continue.
-NEVER ask the user for workspace/model IDs — they are already configured.
+RETRIEVE via the anaplan-ops tools (mcp__anaplan-ops__*). EVERY call takes
+workspaceId="${WS_GUID}" and modelId="${MODEL_GUID}" — always pass both; never ask
+the user for them. If a tool reports the model is closed, call open_model first.
 
-RETRIEVE DIRECTLY — do not delegate to a subagent. Call the Anaplan tools yourself
-(mcp__anaplan-chimera__aocfo_*). Follow the calculation hierarchy from the
-anaplan-module-querier skill: catalog modules/line items → aocfo_sql_schema (with
-included_objects) → aocfo_sql_query. The SQL contract: included_objects on every
-schema and query call; slice-XOR-leaf per dimension; safe aliases (fy26/fy25, never
-cur/prev); no CTEs. Use aocfo_explain_cell to drill 'why'.
+Procedure (structure first — there is NO SQL on this surface):
+  1. show_modules → pick the module at the user's grain (prefer REP/OUT report modules).
+  2. show_lineitems (includeAll=true) → find a PRE-COMPUTED line item literally named
+     Variance / Delta / YoY / % Change / Growth / vs Prior, or paired Actual/Plan/Forecast.
+  3. show_savedviews → pick a view; read_cells (moduleId, viewId, pages for the slice)
+     to read the value. The stored variance line item IS the answer — read it.
 
 THE INVARIANT (§0): never originate, sum, difference, multiply, divide, ratio,
-annualize, or extrapolate a number. Every figure must be READ from a line item or
-returned by ONE Calcite query (engine computes it, e.g. ... AS revenue_delta). If
-you don't have a number, fetch it — never assert or estimate one. Numbers you read
-land in the provenance ledger automatically; only ledger-backed figures may appear
-in your answer.
+annualize, or extrapolate a number. This surface cannot compute deltas, so you MUST
+read a stored variance/total line item — never calculate one yourself. If the model
+has no stored variance line item, say so and report the Actual and Plan you read,
+not a computed difference. Only numbers you actually read appear in your answer; they
+land in the provenance ledger automatically.
 `.trim();
+
+/** Chimera surface (internal endpoint, Calcite SQL — needs the Anaplan VPN). */
+const CHIMERA_BRIEF = `
+You are the FP&A Chief of Staff. You BOTH retrieve and narrate, in a crisp CFO register.
+
+MODEL BINDING: if aocfo_get_model_context returns a null workspaceId/modelId, bind via
+aocfo_set_model_context with workspace id "${WS_GUID}" and model id "${MODEL_GUID}";
+never ask the user for these IDs.
+
+RETRIEVE DIRECTLY (no subagent) via mcp__anaplan-chimera__aocfo_*. Calculation hierarchy:
+catalog modules/line items → aocfo_sql_schema (with included_objects) → aocfo_sql_query.
+SQL contract: included_objects on every call; slice-XOR-leaf per dimension; aliases
+fy26/fy25 (never cur/prev); no CTEs. A delta is a stored line item or ONE query
+returning it AS an alias — the engine computes it.
+
+THE INVARIANT (§0): never originate, sum, difference, multiply, divide, ratio,
+annualize, or extrapolate a number. Read it or have Calcite return it; never assert one.
+Only ledger-backed numbers may appear in your answer.
+`.trim();
+
+type Surface = { servers: Record<string, unknown>; brief: string; label: string };
+
+/** Prefer ops (public, reachable) when its token is set; else Chimera (VPN). */
+function pickSurface(): Surface {
+  if (opsToken()) {
+    return { servers: { "anaplan-ops": opsServerConfig() }, brief: OPS_BRIEF, label: "anaplan-ops" };
+  }
+  try {
+    chimeraEnv(); // throws if creds missing
+    return { servers: { "anaplan-chimera": chimeraServerConfig() }, brief: CHIMERA_BRIEF, label: "anaplan-chimera" };
+  } catch {
+    return { servers: {}, brief: OPS_BRIEF, label: "none" };
+  }
+}
 
 /** Run one turn; yields normalized events for SSE. */
 export async function* runTurn(
@@ -72,6 +106,7 @@ export async function* runTurn(
   // empty even when numbers were fetched.
   let sdkSessionId = sessionId;
   let sawResult = false;
+  const surface = pickSurface();
 
   try {
     const response = query({
@@ -81,11 +116,11 @@ export async function* runTurn(
         settingSources: ["project", "local"],
         // Pass the MCP server explicitly: the SDK does not reliably auto-load
         // mcpServers from settings.json, and takes args verbatim (creds resolved in code).
-        mcpServers: { "anaplan-chimera": chimeraServerConfig() },
+        mcpServers: surface.servers as never,
         // Wire the file hooks explicitly — the SDK does not load settings.json
         // hooks, and without these the web path would run ungoverned (§0).
         hooks: buildHooks(repoRoot),
-        systemPrompt: { type: "preset", preset: "claude_code", append: ORCHESTRATOR_BRIEF },
+        systemPrompt: { type: "preset", preset: "claude_code", append: surface.brief },
         model: MODEL,
         includePartialMessages: true,
         permissionMode: "default",
@@ -98,6 +133,16 @@ export async function* runTurn(
 
     for await (const msg of response as AsyncIterable<Record<string, any>>) {
       if (typeof msg.session_id === "string") sdkSessionId = msg.session_id;
+      // surface MCP connection status so the UI can show connected/failed
+      if (msg.type === "system" && msg.subtype === "init" && Array.isArray(msg.mcp_servers)) {
+        yield {
+          type: "mcp",
+          servers: msg.mcp_servers.map((s: { name?: string; status?: string }) => ({
+            name: s.name ?? "?",
+            status: s.status ?? "?",
+          })),
+        };
+      }
       switch (msg.type) {
         case "partial":
         case "stream_event": {

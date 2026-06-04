@@ -32,11 +32,23 @@ export function loadLocalEnv(repoRoot: string): void {
   }
 }
 
-/** Which Anaplan Chimera credentials are present (never returns the values). */
-export function credsStatus(): { ready: boolean; missing: string[] } {
-  const required = ["ANAPLAN_BASIC_AUTH", "ANAPLAN_WS_GUID", "ANAPLAN_MODEL_GUID"];
-  const missing: string[] = required.filter((k) => !process.env[k] || process.env[k]?.startsWith("<"));
-  const anthropic = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_CODE_OAUTH_TOKEN;
-  if (!anthropic) missing.push("ANTHROPIC_API_KEY");
-  return { ready: missing.length === 0, missing };
+const has = (k: string) => Boolean(process.env[k]) && !process.env[k]?.startsWith("<");
+
+/**
+ * Readiness for the web path (never returns values). Needs an API key, the
+ * workspace/model IDs, and EITHER the ops Bearer token (public, no VPN — the
+ * preferred surface) OR the Chimera Basic auth (internal, needs VPN).
+ */
+export function credsStatus(): { ready: boolean; missing: string[]; surface: string } {
+  const missing: string[] = [];
+  if (!has("ANTHROPIC_API_KEY") && !has("CLAUDE_CODE_OAUTH_TOKEN")) missing.push("ANTHROPIC_API_KEY");
+  if (!has("ANAPLAN_WS_GUID")) missing.push("ANAPLAN_WS_GUID");
+  if (!has("ANAPLAN_MODEL_GUID")) missing.push("ANAPLAN_MODEL_GUID");
+
+  const ops = has("ANAPLAN_OPS_TOKEN");
+  const chimera = has("ANAPLAN_BASIC_AUTH");
+  const surface = ops ? "anaplan-ops" : chimera ? "anaplan-chimera" : "none";
+  if (!ops && !chimera) missing.push("ANAPLAN_OPS_TOKEN (or ANAPLAN_BASIC_AUTH)");
+
+  return { ready: missing.length === 0, missing, surface };
 }
