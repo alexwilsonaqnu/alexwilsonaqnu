@@ -93,6 +93,7 @@ c = re.sub(r'\[[^\]]*\]', ' ', c)                      # bracketed: regex char c
 c = re.sub(r'\b\d{4}-\d{2}-\d{2}\b', ' ', c)           # ISO dates
 c = re.sub(r'(?i)\b(?:FY|Q|H|CY|P)\s?\d{1,4}\b', ' ', c)  # period ids
 c = re.sub(r'\b\d+\.\d+\.\d+\b', ' ', c)               # semver
+c = re.sub(r'\b\d{1,3}(?:-\d{1,3})+\b', ' ', c)        # model/version ids: opus-4-8, sonnet-4-6, 1-2-3
 c = re.sub(r'(^|\s)-\d+\b', ' ', c)                    # negative flags / args
 print(c)
 PY

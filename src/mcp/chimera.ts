@@ -47,6 +47,40 @@ export function chimeraMcpArgs(): string[] {
   ];
 }
 
+/**
+ * A fully-resolved stdio MCP server config for the SDK `mcpServers` option.
+ *
+ * Unlike `.claude/settings.json` (where the harness expands `${VAR}` headers),
+ * the SDK takes the args verbatim — so we substitute the real credential values
+ * from the environment here. Throws if creds are missing.
+ */
+export function chimeraServerConfig(): {
+  type: "stdio";
+  command: string;
+  args: string[];
+} {
+  const { basicAuth, workspaceGuid, modelGuid } = chimeraEnv();
+  return {
+    type: "stdio",
+    command: "npx",
+    args: [
+      "-y",
+      "mcp-remote",
+      CHIMERA_ENDPOINT,
+      "--header",
+      `Authorization: Basic ${basicAuth}`,
+      "--header",
+      `x-workspace-guid: ${workspaceGuid}`,
+      "--header",
+      `x-model-guid: ${modelGuid}`,
+      "--header",
+      "x-traceid: fpna-agents",
+      "--header",
+      "x-tracepath: fpna-agents",
+    ],
+  };
+}
+
 /** Tools the retriever is allowed to call on this surface (read/explain only). */
 export const CHIMERA_READ_TOOLS = [
   "aocfo_catalog_modules",

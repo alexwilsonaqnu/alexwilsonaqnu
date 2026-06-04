@@ -54,10 +54,14 @@ behind the answer — value, source (line item / Calcite SQL / recompute / expla
 version, intersection, and the exact SQL the engine ran.
 
 - **Backend** (`src/web/`): a lean Node server driving the Claude Agent SDK
-  (`@anthropic-ai/claude-agent-sdk`). It loads the project `.claude/` harness
-  (Chimera MCP, hooks, the `anaplan-retriever` subagent), runs one orchestrator
-  turn per message, streams tokens over SSE, and surfaces the session ledger.
-  Read-only: writes/mutations are denied in the web path (Phase 2).
+  (`@anthropic-ai/claude-agent-sdk`). The SDK does **not** auto-load `settings.json`
+  MCP servers or hooks, so the backend wires them **explicitly** (`mcp/chimera.ts`,
+  `web/hooks-bridge.ts`) — running the *same* `.claude/hooks/` scripts, so the web
+  path enforces the §0 invariant identically to the CLI (ledger-append, no-math
+  gate, provenance Stop-gate all active). In the web path the lead **retrieves
+  directly** via the Anaplan tools (rather than delegating to the `anaplan-retriever`
+  subagent), so every raw MCP response lands in the ledger and can be verified.
+  Read-only: writes/mutations are denied (Phase 2).
 - **Frontend** (`web/`): React + the Anaplan Design System (`@ads/react`,
   `@ads/sass`, `@ads/icons`) via Vite.
 
@@ -75,10 +79,21 @@ cd web && pnpm install && pnpm dev        # http://localhost:5173
 ```
 `GET /api/health` reports readiness; the UI shows **live** once Anaplan creds +
 an API key are present. Configure `FPNA_MODEL` to override the model
-(default `claude-opus-4-8`), `FPNA_WEB_PORT` to change the port.
+(default `claude-sonnet-4-6`; set an Opus tier if your key has access),
+`FPNA_WEB_PORT` to change the port.
 
 > The `@ads/*` packages resolve from Anaplan's internal registry (`workspace:^1.1.0`,
 > per `docs/anaplan-mcp-setup`); install them where you have that access.
+
+### Network requirement (important)
+The backend reaches Anaplan via `mcp-remote` to **`us1a.app-chimera.anaplan.com`**.
+The host running the backend **must be allowed to reach that host.** A sandboxed
+environment with an egress allowlist (e.g. Claude Code on the web with a
+restricted network policy) returns `Host not in allowlist (403)` and the MCP
+server shows `status: failed` — the agent then has no `aocfo_*` tools. Run the
+backend **locally**, or on an environment whose network policy allowlists
+`*.anaplan.com`. Verify with `GET /api/health` (creds) and watch the server log
+for a successful MCP connection.
 
 ## How it works (the calculation hierarchy, §4)
 A delta/variance/%/YoY is sourced, never computed: **(1)** read a structural line item that

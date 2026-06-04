@@ -97,7 +97,7 @@ const server = createServer(async (req, res) => {
   try {
     if (url.startsWith("/api/health")) {
       const { ready, missing } = credsStatus();
-      return json(res, 200, { ready, missing, model: process.env.FPNA_MODEL ?? "claude-opus-4-8" });
+      return json(res, 200, { ready, missing, model: process.env.FPNA_MODEL ?? "claude-sonnet-4-6" });
     }
 
     if (url.startsWith("/api/facts")) {

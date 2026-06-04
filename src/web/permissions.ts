@@ -21,8 +21,15 @@ const CHIMERA_READ = [
   "aocfo_get_model_context",
 ];
 
-/** Orchestration / context tools the lead and subagents use. */
-const ORCHESTRATION = ["Task", "Skill", "TodoWrite", "Read", "Grep", "Glob"];
+/**
+ * Orchestration / context tools. NOTE: no `Task` — in the web path the lead
+ * retrieves directly via the Anaplan tools so that every raw MCP response is
+ * captured by the ledger-append hook. A subagent only returns a text summary,
+ * whose underlying responses never reach the ledger, so its numbers can't be
+ * verified. (Subagent isolation, §5, is a full-system optimization, not needed
+ * for the invariant, which the hooks enforce regardless.)
+ */
+const ORCHESTRATION = ["Skill", "TodoWrite", "Read", "Grep", "Glob"];
 
 export const ALLOWED_TOOLS = [
   ...ORCHESTRATION,

@@ -111,6 +111,11 @@ test("still blocks real finance-series arithmetic at a word boundary", () => {
 });
 
 // ---- still BLOCKS real interpreter math (deny is intact) ---------------------
+test("allows a model/version id like claude-opus-4-8 in a node command", () => {
+  const r = runHook("no-math-gate.sh", bash('FPNA_MODEL=claude-opus-4-8 node dist/web/server.js'));
+  assert.equal(r.status, 0, r.stderr);
+});
+
 test("still blocks python literal subtraction even with the context gate", () => {
   const r = runHook("no-math-gate.sh", bash('python3 -c "print(1450000 - 1200000)"'));
   assert.equal(r.status, 2, r.stderr);

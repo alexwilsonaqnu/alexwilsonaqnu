@@ -12,9 +12,11 @@
  * no-math gate and provenance Stop-gate apply unchanged.
  */
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { AnaplanFact } from "../ledger/index.js";
+import { Ledger, type AnaplanFact } from "../ledger/index.js";
 import { openLedger } from "../orchestrator.js";
+import { chimeraServerConfig } from "../mcp/chimera.js";
 import { ALLOWED_TOOLS, DISALLOWED_TOOLS, canUseTool } from "./permissions.js";
+import { buildHooks } from "./hooks-bridge.js";
 
 export type AgentEvent =
   | { type: "token"; text: string }
@@ -24,17 +26,27 @@ export type AgentEvent =
   | { type: "error"; message: string }
   | { type: "done"; sessionId: string };
 
-const MODEL = process.env.FPNA_MODEL ?? "claude-opus-4-8";
+// Default to a model proven available on this API key. Override with FPNA_MODEL
+// (e.g. an Opus tier) if your account has access.
+const MODEL = process.env.FPNA_MODEL ?? "claude-sonnet-4-6";
 
 const ORCHESTRATOR_BRIEF = `
-You are the FP&A Chief of Staff orchestrator. Route the user's finance question,
-delegate retrieval to the anaplan-retriever subagent (the only agent that touches
-Anaplan), and narrate the answer in a crisp CFO register.
+You are the FP&A Chief of Staff. You BOTH retrieve and narrate. Answer the user's
+finance question in a crisp CFO register.
 
-THE INVARIANT: never originate, sum, difference, multiply, divide, ratio, annualize,
-or extrapolate a number. Every figure must be read from an Anaplan line item or
-computed by one Calcite query (engine-side). Walk the calculation hierarchy. If you
-need a number you don't have, have the retriever fetch it — do not compute it.
+RETRIEVE DIRECTLY — do not delegate to a subagent. Call the Anaplan tools yourself
+(mcp__anaplan-chimera__aocfo_*). Follow the calculation hierarchy from the
+anaplan-module-querier skill: catalog modules/line items → aocfo_sql_schema (with
+included_objects) → aocfo_sql_query. The SQL contract: included_objects on every
+schema and query call; slice-XOR-leaf per dimension; safe aliases (fy26/fy25, never
+cur/prev); no CTEs. Use aocfo_explain_cell to drill 'why'.
+
+THE INVARIANT (§0): never originate, sum, difference, multiply, divide, ratio,
+annualize, or extrapolate a number. Every figure must be READ from a line item or
+returned by ONE Calcite query (engine computes it, e.g. ... AS revenue_delta). If
+you don't have a number, fetch it — never assert or estimate one. Numbers you read
+land in the provenance ledger automatically; only ledger-backed figures may appear
+in your answer.
 `.trim();
 
 /** Run one turn; yields normalized events for SSE. */
@@ -43,8 +55,14 @@ export async function* runTurn(
   sessionId: string,
   repoRoot: string,
 ): AsyncGenerator<AgentEvent> {
-  const ledger = openLedger(sessionId); // sets FPNA_RUNTIME + FPNA_SESSION_ID
-  const seen = new Set(ledger.all().map((f) => f.requestId));
+  openLedger(sessionId); // marks the FP&A runtime so the Stop-gate enforces
+
+  // The ledger-append hook keys facts by the SDK's own session id (the value it
+  // receives in the hook payload), not our sessionId — so capture it from the
+  // message stream and read the ledger from THAT file. Otherwise the panel is
+  // empty even when numbers were fetched.
+  let sdkSessionId = sessionId;
+  let sawResult = false;
 
   try {
     const response = query({
@@ -52,6 +70,12 @@ export async function* runTurn(
       options: {
         cwd: repoRoot,
         settingSources: ["project", "local"],
+        // Pass the MCP server explicitly: the SDK does not reliably auto-load
+        // mcpServers from settings.json, and takes args verbatim (creds resolved in code).
+        mcpServers: { "anaplan-chimera": chimeraServerConfig() },
+        // Wire the file hooks explicitly — the SDK does not load settings.json
+        // hooks, and without these the web path would run ungoverned (§0).
+        hooks: buildHooks(repoRoot),
         systemPrompt: { type: "preset", preset: "claude_code", append: ORCHESTRATOR_BRIEF },
         model: MODEL,
         includePartialMessages: true,
@@ -64,6 +88,7 @@ export async function* runTurn(
     });
 
     for await (const msg of response as AsyncIterable<Record<string, any>>) {
+      if (typeof msg.session_id === "string") sdkSessionId = msg.session_id;
       switch (msg.type) {
         case "partial":
         case "stream_event": {
@@ -83,8 +108,11 @@ export async function* runTurn(
           break;
         }
         case "result": {
-          if (typeof msg.result === "string" && msg.subtype !== "success") {
-            yield { type: "message", text: msg.result };
+          sawResult = true;
+          // surface real failures instead of finishing silently
+          if (msg.is_error || (typeof msg.subtype === "string" && msg.subtype !== "success")) {
+            const detail = typeof msg.result === "string" && msg.result ? msg.result : msg.subtype;
+            yield { type: "error", message: `Run ended: ${detail}` };
           }
           break;
         }
@@ -92,14 +120,15 @@ export async function* runTurn(
           break;
       }
     }
+    if (!sawResult) {
+      yield { type: "error", message: `No response from the model (check that '${MODEL}' is available on this API key; override with FPNA_MODEL).` };
+    }
   } catch (err) {
     yield { type: "error", message: err instanceof Error ? err.message : String(err) };
   }
 
-  // surface every fact retrieved this turn (and the running session set)
-  const facts = ledger.all();
+  // read facts from the SDK-session ledger (where the hook actually wrote them)
+  const facts = new Ledger(sdkSessionId).all();
   yield { type: "facts", facts };
   yield { type: "done", sessionId };
-
-  void seen; // (reserved: per-turn diffing if we later stream incremental facts)
 }
