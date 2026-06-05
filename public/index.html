@@ -36,6 +36,9 @@
       .text { display: inline-block; text-align: left; white-space: pre-wrap; line-height: 1.55; padding: .75rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
       .user .text { background: var(--accent); color: #fff; border-color: transparent; }
       .prov { font-size: .72rem; color: var(--soft); margin-top: .35rem; }
+      .status { font-size: .8rem; color: var(--soft); margin-top: .4rem; display: inline-flex; align-items: center; gap: .45rem; }
+      .status::before { content: ""; width: .6rem; height: .6rem; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+      @keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
       .activity { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; color: var(--soft); }
       .composer { display: flex; gap: .6rem; align-items: flex-end; padding: 1rem 1.5rem; border-top: 1px solid var(--border); background: var(--surface); }
       .composer textarea { flex: 1; resize: none; font: inherit; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: var(--radius); }
@@ -171,7 +174,11 @@
         addBubble("user", q);
         const bot = addBubble("assistant", "");
         const botText = bot.querySelector(".text");
-        let activity = null;
+        const status = document.createElement("div");
+        status.className = "status";
+        status.textContent = "Connecting…";
+        bot.appendChild(status);
+        const setStatus = (t) => { if (status.isConnected) status.textContent = t; };
 
         try {
           const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, message: q }) });
@@ -185,25 +192,28 @@
               const frame = buf.slice(0, i); buf = buf.slice(i + 2);
               const line = frame.split("\n").find((l) => l.startsWith("data:")); if (!line) continue;
               let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch { continue; }
-              if (ev.type === "start") sessionId = ev.sessionId;
+              if (ev.type === "start") { sessionId = ev.sessionId; setStatus("Thinking…"); }
               else if (ev.type === "mcp") {
                 const ana = (ev.servers || []).find((s) => /anaplan/.test(s.name)) || (ev.servers || [])[0];
                 const b = $("banner");
                 if (!ana) { b.style.display = "block"; b.textContent = "⚠ No Anaplan MCP server is configured."; }
-                else if (/connect|ready|ok/i.test(ana.status)) { b.style.display = "none"; }
+                else if (/connect|ready|ok/i.test(ana.status)) { b.style.display = "none"; setStatus("Connected to Anaplan (" + ana.name + ") — working…"); }
                 else {
                   b.style.display = "block";
                   b.textContent = "⚠ Anaplan MCP server '" + ana.name + "' is " + ana.status + " — not connected. If it's the Chimera (VPN) server, connect to the Anaplan VPN; the ops server should work without VPN.";
                 }
               }
-              else if (ev.type === "tool") { activity = activity || addBubble("assistant", ""); }
-              else if (ev.type === "token") { botText.textContent += ev.text; $("messages").scrollTop = $("messages").scrollHeight; }
+              else if (ev.type === "tool") { const n = (ev.name || "").replace(/^mcp__anaplan-(ops|chimera)__/, ""); setStatus("Querying Anaplan — " + n + "…"); }
+              else if (ev.type === "token") { status.style.display = "none"; botText.textContent += ev.text; $("messages").scrollTop = $("messages").scrollHeight; }
               else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }
-              else if (ev.type === "message" || ev.type === "error") { if (!botText.textContent) botText.textContent = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); }
+              else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; if (!botText.textContent) botText.textContent = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); }
             }
           }
         } catch (e) { botText.textContent = "⚠️ " + (e.message || e); }
-        if (activity) activity.remove();
+        status.remove();
+        if (!botText.textContent.trim()) {
+          botText.textContent = "(No answer came back. If the orange banner above shows a connection warning, that's the cause. Otherwise the model finished without output — try again, or tell me what you see.)";
+        }
         busy = false; $("send").disabled = false;
       }
 
