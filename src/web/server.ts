@@ -107,6 +107,17 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ready, missing, surface, model: process.env.FPNA_MODEL ?? "claude-sonnet-4-6" });
     }
 
+    if (url.startsWith("/api/debug")) {
+      // last raw Anaplan tool response, for tuning the ledger parser
+      try {
+        const buf = await readFile(join(REPO_ROOT, ".fpna", "debug", "last-tool-response.json"), "utf8");
+        res.writeHead(200, { "content-type": "application/json; charset=utf-8" });
+        return res.end(buf);
+      } catch {
+        return json(res, 200, { note: "No tool response captured yet. Ask a question first, then reload this page." });
+      }
+    }
+
     if (url.startsWith("/api/facts")) {
       const session = new URL(url, "http://x").searchParams.get("session") ?? "";
       const facts = session ? new Ledger(session).all() : [];

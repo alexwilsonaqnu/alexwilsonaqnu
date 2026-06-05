@@ -13,6 +13,7 @@ web/dist/
 # run-scoped provenance ledger and backups (regenerated per session)
 .fpna/ledger/*.jsonl
 .fpna/backups/
+.fpna/debug/
 
 # generated board packs / dossiers
 outputs/

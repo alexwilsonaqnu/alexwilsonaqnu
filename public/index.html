@@ -47,6 +47,9 @@
       .text code { background: #f1f5f9; padding: 0 .3rem; border-radius: 4px; font-size: .85em; }
       .text :first-child { margin-top: 0; } .text :last-child { margin-bottom: 0; }
       .prov { font-size: .72rem; color: var(--soft); margin-top: .35rem; }
+      .verify { font-size: .74rem; margin-top: .5rem; padding: .3rem .55rem; border-radius: 7px; display: inline-block; }
+      .verify.ok { color: var(--ok); background: rgba(26,127,85,.08); border: 1px solid rgba(26,127,85,.25); }
+      .verify.warn { color: var(--warn); background: rgba(180,83,9,.08); border: 1px solid rgba(180,83,9,.3); }
       .status { font-size: .8rem; color: var(--soft); margin-top: .4rem; display: inline-flex; align-items: center; gap: .45rem; }
       .status::before { content: ""; width: .6rem; height: .6rem; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
       @keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
@@ -250,6 +253,7 @@
               else if (ev.type === "tool") { const n = (ev.name || "").replace(/^mcp__anaplan-(ops|chimera)__/, ""); setStatus("Querying Anaplan — " + n + "…"); }
               else if (ev.type === "token") { status.style.display = "none"; raw += ev.text; botText.textContent = raw; $("messages").scrollTop = $("messages").scrollHeight; }
               else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }
+              else if (ev.type === "verify") { const v = document.createElement("div"); v.className = "verify " + (ev.ok ? "ok" : "warn"); v.textContent = (ev.ok ? "✓ " : "⚠ ") + ev.message; bot.appendChild(v); }
               else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; if (!raw) { raw = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); botText.textContent = raw; } }
             }
           }

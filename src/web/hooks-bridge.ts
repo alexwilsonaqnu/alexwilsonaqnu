@@ -20,7 +20,7 @@ interface ScriptResult {
   stderr: string;
 }
 
-function runScript(scriptPath: string, input: unknown, cwd: string): Promise<ScriptResult> {
+export function runScript(scriptPath: string, input: unknown, cwd: string): Promise<ScriptResult> {
   return new Promise((resolve) => {
     const child = spawn(scriptPath, [], { cwd, stdio: ["pipe", "pipe", "pipe"] });
     let stderr = "";

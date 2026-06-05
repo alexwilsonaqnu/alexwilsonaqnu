@@ -17,13 +17,15 @@ import { openLedger } from "../orchestrator.js";
 import { chimeraServerConfig, chimeraEnv } from "../mcp/chimera.js";
 import { opsServerConfig, opsToken } from "../mcp/ops.js";
 import { ALLOWED_TOOLS, DISALLOWED_TOOLS, canUseTool } from "./permissions.js";
-import { buildHooks } from "./hooks-bridge.js";
+import { buildHooks, runScript } from "./hooks-bridge.js";
+import { join } from "node:path";
 
 export type AgentEvent =
   | { type: "token"; text: string }
   | { type: "tool"; name: string; phase: "start" }
   | { type: "mcp"; servers: { name: string; status: string }[] }
   | { type: "facts"; facts: AnaplanFact[] }
+  | { type: "verify"; ok: boolean; message: string }
   | { type: "message"; text: string }
   | { type: "error"; message: string }
   | { type: "done"; sessionId: string };
@@ -112,6 +114,7 @@ export async function* runTurn(
   // empty even when numbers were fetched.
   let sdkSessionId = sessionId;
   let sawResult = false;
+  let answer = "";
   const surface = pickSurface();
 
   try {
@@ -154,6 +157,7 @@ export async function* runTurn(
         case "stream_event": {
           const delta = msg.delta ?? msg.event?.delta;
           if (delta?.type === "text_delta" && typeof delta.text === "string") {
+            answer += delta.text;
             yield { type: "token", text: delta.text };
           }
           break;
@@ -169,6 +173,7 @@ export async function* runTurn(
         }
         case "result": {
           sawResult = true;
+          if (typeof msg.result === "string" && msg.result.trim()) answer = msg.result;
           // surface real failures instead of finishing silently
           if (msg.is_error || (typeof msg.subtype === "string" && msg.subtype !== "success")) {
             const detail = typeof msg.result === "string" && msg.result ? msg.result : msg.subtype;
@@ -190,5 +195,26 @@ export async function* runTurn(
   // read facts from the SDK-session ledger (where the hook actually wrote them)
   const facts = new Ledger(sdkSessionId).all();
   yield { type: "facts", facts };
+
+  // Enforce the invariant on the finished answer. The Stop-gate-via-transcript is
+  // unreliable in the SDK path, so vet the streamed answer text against the ledger
+  // directly (same script, draft passed in). This is the §0 backstop for the web path.
+  if (answer.trim()) {
+    try {
+      const gate = await runScript(
+        join(repoRoot, ".claude", "hooks", "provenance-stop-gate.py"),
+        { hook_event_name: "Stop", draft: answer, session_id: sdkSessionId, cwd: repoRoot },
+        repoRoot,
+      );
+      if (gate.code === 2) {
+        const first = (gate.stderr.split("\n").find((l) => /not in the provenance ledger/.test(l)) ?? gate.stderr).trim();
+        yield { type: "verify", ok: false, message: first || "Some figures are not traceable to the provenance ledger." };
+      } else {
+        yield { type: "verify", ok: true, message: `Every figure traces to the ledger (${facts.length} fact${facts.length === 1 ? "" : "s"}).` };
+      }
+    } catch {
+      /* enforcement is best-effort */
+    }
+  }
   yield { type: "done", sessionId };
 }

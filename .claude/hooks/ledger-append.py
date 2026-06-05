@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -102,6 +103,53 @@ def is_number(v: Any) -> bool:
     return False
 
 
+def raw_text_of(tool_response: Any, data: Any) -> str:
+    """Best-effort raw text of a tool response (for CSV/grid/text blobs)."""
+    if isinstance(tool_response, dict):
+        parts = tool_response.get("content") or []
+        texts = [p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "text"]
+        if texts:
+            return "\n".join(texts)
+    if isinstance(data, str):
+        return data
+    try:
+        return json.dumps(data, default=str)
+    except (TypeError, ValueError):
+        return str(data)
+
+
+# A "figure": comma-grouped numbers (optionally $ ( ) -), decimals, or a bare
+# 4–12 digit integer. Skips 1–3 digit counts and >12 digit ids.
+_FIGURE_RE = re.compile(
+    r"\$?\(?-?\d{1,3}(?:,\d{3})+(?:\.\d+)?\)?"
+    r"|\$?-?\d+\.\d+"
+    r"|\b\d{4,12}\b"
+)
+
+
+def scan_numbers(text: str) -> list[tuple[str, float]]:
+    out: list[tuple[str, float]] = []
+    seen: set[str] = set()
+    for m in _FIGURE_RE.finditer(text):
+        raw = m.group(0)
+        neg = raw.strip().startswith("(") and raw.strip().endswith(")")
+        cleaned = re.sub(r"[^\d.\-]", "", raw)
+        if cleaned in ("", "-", ".", "-."):
+            continue
+        try:
+            val = float(cleaned)
+        except ValueError:
+            continue
+        if neg:
+            val = -abs(val)
+        key = f"{val:.6g}"
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((raw, val))
+    return out
+
+
 def main() -> None:
     payload = read_hook_input()
     session_id = find_session_id(payload)
@@ -111,6 +159,19 @@ def main() -> None:
     tool_name = payload.get("tool_name", "")
     tool_input = payload.get("tool_input", {}) or {}
     data = unwrap_response(payload.get("tool_response"))
+
+    # debug: persist the last raw response so we can inspect the shape and tune
+    # parsing (one overwriting file; exposed at GET /api/debug).
+    try:
+        dbg = os.path.join(cwd or ".", ".fpna", "debug")
+        os.makedirs(dbg, exist_ok=True)
+        with open(os.path.join(dbg, "last-tool-response.json"), "w", encoding="utf-8") as fh:
+            json.dump(
+                {"tool": tool_name, "tool_input": tool_input, "response": payload.get("tool_response")},
+                fh, indent=2, default=str,
+            )
+    except Exception:
+        pass
 
     source = derive_source(tool_name, tool_input)
     query = tool_input.get("query") if source == "sql_calcite" else None
@@ -161,6 +222,23 @@ def main() -> None:
                 "value": num,
                 "label": ".".join(path) or (base["module"] or tool_name),
                 "lineItem": path[-1] if path else tool_name,
+                "intersection": {},
+                "requestId": f"req_{uuid.uuid4().hex[:8]}",
+                "fetchedAt": datetime.now(timezone.utc).isoformat(),
+            }
+            append_fact(session_id, fact, cwd)
+            count += 1
+
+    if count == 0:
+        # last resort: regex figures out of a text/CSV/grid blob (e.g. read_cells
+        # that returns formatted text rather than structured JSON).
+        bare = tool_name.split("__")[-1]
+        for raw_num, val in scan_numbers(raw_text_of(payload.get("tool_response"), data)):
+            fact = {
+                **base,
+                "value": val,
+                "label": (base["module"] or bare) + " · " + raw_num.strip(),
+                "lineItem": bare,
                 "intersection": {},
                 "requestId": f"req_{uuid.uuid4().hex[:8]}",
                 "fetchedAt": datetime.now(timezone.utc).isoformat(),
