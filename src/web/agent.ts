@@ -12,13 +12,24 @@
  * no-math gate and provenance Stop-gate apply unchanged.
  */
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { Ledger, type AnaplanFact } from "../ledger/index.js";
+import { Ledger, factNumber, type AnaplanFact } from "../ledger/index.js";
 import { openLedger } from "../orchestrator.js";
 import { chimeraServerConfig, chimeraEnv } from "../mcp/chimera.js";
 import { opsServerConfig, opsToken } from "../mcp/ops.js";
 import { ALLOWED_TOOLS, DISALLOWED_TOOLS, canUseTool } from "./permissions.js";
-import { buildHooks, runScript } from "./hooks-bridge.js";
+import { collectFacts, verifyAnswer, isDataTool, type FactInput } from "./provenance.js";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+
+/** Write a diagnostic snapshot of a tool result (exposed at GET /api/debug). */
+function writeDebug(repoRoot: string, payload: unknown): void {
+  try {
+    mkdirSync(join(repoRoot, ".fpna", "debug"), { recursive: true });
+    writeFileSync(join(repoRoot, ".fpna", "debug", "last-tool-response.json"), JSON.stringify(payload, null, 2));
+  } catch {
+    /* best-effort */
+  }
+}
 
 export type AgentEvent =
   | { type: "token"; text: string }
@@ -100,6 +111,24 @@ function pickSurface(): Surface {
   }
 }
 
+/** Flatten an MCP tool_result's content into text. */
+function resultText(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((c) =>
+        typeof c === "string"
+          ? c
+          : c && typeof c === "object" && "text" in (c as Record<string, unknown>)
+            ? String((c as Record<string, unknown>).text ?? "")
+            : "",
+      )
+      .join("\n");
+  }
+  if (content && typeof content === "object") return JSON.stringify(content);
+  return content == null ? "" : String(content);
+}
+
 /** Run one turn; yields normalized events for SSE. */
 export async function* runTurn(
   message: string,
@@ -115,6 +144,8 @@ export async function* runTurn(
   let sdkSessionId = sessionId;
   let sawResult = false;
   let answer = "";
+  const pendingTools = new Map<string, { name: string; input: Record<string, any> }>();
+  const captured: FactInput[] = [];
   const surface = pickSurface();
 
   try {
@@ -126,9 +157,9 @@ export async function* runTurn(
         // Pass the MCP server explicitly: the SDK does not reliably auto-load
         // mcpServers from settings.json, and takes args verbatim (creds resolved in code).
         mcpServers: surface.servers as never,
-        // Wire the file hooks explicitly — the SDK does not load settings.json
-        // hooks, and without these the web path would run ungoverned (§0).
-        hooks: buildHooks(repoRoot),
+        // NB: provenance (ledger population + answer vetting) is enforced IN-PROCESS
+        // below — the Python/bash file hooks fail silently when a Finder-launched
+        // app has no python3 on its PATH, so the web path can't depend on them.
         systemPrompt: { type: "preset", preset: "claude_code", append: surface.brief },
         model: MODEL,
         includePartialMessages: true,
@@ -166,7 +197,27 @@ export async function* runTurn(
           const content = msg.message?.content ?? [];
           for (const block of content) {
             if (block?.type === "tool_use" && typeof block.name === "string") {
+              pendingTools.set(block.id, { name: block.name, input: (block.input ?? {}) as Record<string, any> });
               yield { type: "tool", name: block.name, phase: "start" };
+            }
+          }
+          break;
+        }
+        case "user": {
+          // tool results come back as tool_result blocks on user messages —
+          // capture figures from Anaplan reads into the ledger (in-process).
+          const content = msg.message?.content ?? [];
+          for (const block of Array.isArray(content) ? content : []) {
+            if (block?.type === "tool_result") {
+              const meta = pendingTools.get(block.tool_use_id) ?? { name: "", input: {} };
+              const text = resultText(block.content);
+              let added = 0;
+              if (isDataTool(meta.name)) {
+                const f = collectFacts(meta.name, meta.input, text);
+                captured.push(...f);
+                added = f.length;
+              }
+              writeDebug(repoRoot, { tool: meta.name, isDataTool: isDataTool(meta.name), factsCaptured: added, text: text.slice(0, 6000) });
             }
           }
           break;
@@ -192,28 +243,31 @@ export async function* runTurn(
     yield { type: "error", message: err instanceof Error ? err.message : String(err) };
   }
 
-  // read facts from the SDK-session ledger (where the hook actually wrote them)
-  const facts = new Ledger(sdkSessionId).all();
+  // Persist the captured facts to the session ledger, then read them back.
+  const ledger = new Ledger(sdkSessionId);
+  for (const f of captured) ledger.append(f);
+  const facts = ledger.all();
   yield { type: "facts", facts };
 
-  // Enforce the invariant on the finished answer. The Stop-gate-via-transcript is
-  // unreliable in the SDK path, so vet the streamed answer text against the ledger
-  // directly (same script, draft passed in). This is the §0 backstop for the web path.
+  // §0 backstop, in-process: every number in the finished answer must trace to a
+  // ledger fact (a number we actually read from Anaplan). No python/bash needed.
   if (answer.trim()) {
-    try {
-      const gate = await runScript(
-        join(repoRoot, ".claude", "hooks", "provenance-stop-gate.py"),
-        { hook_event_name: "Stop", draft: answer, session_id: sdkSessionId, cwd: repoRoot },
-        repoRoot,
-      );
-      if (gate.code === 2) {
-        const first = (gate.stderr.split("\n").find((l) => /not in the provenance ledger/.test(l)) ?? gate.stderr).trim();
-        yield { type: "verify", ok: false, message: first || "Some figures are not traceable to the provenance ledger." };
-      } else {
-        yield { type: "verify", ok: true, message: `Every figure traces to the ledger (${facts.length} fact${facts.length === 1 ? "" : "s"}).` };
-      }
-    } catch {
-      /* enforcement is best-effort */
+    const { ok, unsourced } = verifyAnswer(answer, facts.map(factNumber));
+    if (ok) {
+      yield {
+        type: "verify",
+        ok: true,
+        message: facts.length
+          ? `Every figure traces to the ledger (${facts.length} fact${facts.length === 1 ? "" : "s"}).`
+          : "No unsourced figures in this answer.",
+      };
+    } else {
+      const shown = unsourced.slice(0, 6).map((n) => n.toLocaleString("en-US")).join(", ");
+      yield {
+        type: "verify",
+        ok: false,
+        message: `${unsourced.length} figure(s) not traceable to the ledger: ${shown}${unsourced.length > 6 ? " …" : ""}`,
+      };
     }
   }
   yield { type: "done", sessionId };
