@@ -35,6 +35,17 @@
       .role { font-size: .72rem; color: var(--soft); margin-bottom: .25rem; }
       .text { display: inline-block; text-align: left; white-space: pre-wrap; line-height: 1.55; padding: .75rem 1rem; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
       .user .text { background: var(--accent); color: #fff; border-color: transparent; }
+      .text table { border-collapse: collapse; margin: .55rem 0; font-size: .82rem; display: block; overflow-x: auto; }
+      .text th, .text td { border: 1px solid var(--border); padding: .3rem .55rem; text-align: right; white-space: nowrap; }
+      .text th:first-child, .text td:first-child { text-align: left; }
+      .text thead th { background: #f1f5f9; font-weight: 600; }
+      .text h3, .text h4, .text h5, .text h6 { margin: .7rem 0 .35rem; line-height: 1.3; }
+      .text h3 { font-size: 1.05rem; } .text h4 { font-size: .95rem; }
+      .text hr { border: none; border-top: 1px solid var(--border); margin: .7rem 0; }
+      .text p { margin: .4rem 0; }
+      .text ul { margin: .35rem 0; padding-left: 1.2rem; }
+      .text code { background: #f1f5f9; padding: 0 .3rem; border-radius: 4px; font-size: .85em; }
+      .text :first-child { margin-top: 0; } .text :last-child { margin-bottom: 0; }
       .prov { font-size: .72rem; color: var(--soft); margin-top: .35rem; }
       .status { font-size: .8rem; color: var(--soft); margin-top: .4rem; display: inline-flex; align-items: center; gap: .45rem; }
       .status::before { content: ""; width: .6rem; height: .6rem; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
@@ -117,6 +128,38 @@
       }
       function esc(s) { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; }
 
+      // Minimal, dependency-free markdown → HTML for the agent's output
+      // (headings, tables, bold/italic/code, hr, bullet lists, paragraphs).
+      function mdToHtml(src) {
+        const e = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const inline = (s) => e(s)
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/`([^`]+)`/g, "<code>$1</code>")
+          .replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+        const lines = src.replace(/\r/g, "").split("\n");
+        let html = "", i = 0, inUl = false;
+        const closeUl = () => { if (inUl) { html += "</ul>"; inUl = false; } };
+        const row = (l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+        while (i < lines.length) {
+          const line = lines[i];
+          if (/^\s*\|.*\|\s*$/.test(line) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+            closeUl();
+            const heads = row(line); i += 2; const rows = [];
+            while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { rows.push(row(lines[i])); i++; }
+            html += "<table><thead><tr>" + heads.map((h) => "<th>" + inline(h) + "</th>").join("") + "</tr></thead><tbody>" +
+              rows.map((r) => "<tr>" + r.map((c) => "<td>" + inline(c) + "</td>").join("") + "</tr>").join("") + "</tbody></table>";
+            continue;
+          }
+          if (/^\s*#{1,6}\s+/.test(line)) { closeUl(); const lvl = line.match(/^#+/)[0].length; const h = Math.min(lvl + 2, 6); html += "<h" + h + ">" + inline(line.replace(/^#+\s+/, "")) + "</h" + h + ">"; i++; continue; }
+          if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { closeUl(); html += "<hr>"; i++; continue; }
+          if (/^\s*[-*]\s+/.test(line)) { if (!inUl) { html += "<ul>"; inUl = true; } html += "<li>" + inline(line.replace(/^\s*[-*]\s+/, "")) + "</li>"; i++; continue; }
+          if (line.trim() === "") { closeUl(); i++; continue; }
+          closeUl(); html += "<p>" + inline(line) + "</p>"; i++;
+        }
+        closeUl();
+        return html;
+      }
+
       async function health() {
         try {
           const h = await (await fetch("/api/health")).json();
@@ -179,6 +222,7 @@
         status.textContent = "Connecting…";
         bot.appendChild(status);
         const setStatus = (t) => { if (status.isConnected) status.textContent = t; };
+        let raw = "";
 
         try {
           const res = await fetch("/api/chat", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId, message: q }) });
@@ -204,16 +248,15 @@
                 }
               }
               else if (ev.type === "tool") { const n = (ev.name || "").replace(/^mcp__anaplan-(ops|chimera)__/, ""); setStatus("Querying Anaplan — " + n + "…"); }
-              else if (ev.type === "token") { status.style.display = "none"; botText.textContent += ev.text; $("messages").scrollTop = $("messages").scrollHeight; }
+              else if (ev.type === "token") { status.style.display = "none"; raw += ev.text; botText.textContent = raw; $("messages").scrollTop = $("messages").scrollHeight; }
               else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }
-              else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; if (!botText.textContent) botText.textContent = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); }
+              else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; if (!raw) { raw = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); botText.textContent = raw; } }
             }
           }
         } catch (e) { botText.textContent = "⚠️ " + (e.message || e); }
         status.remove();
-        if (!botText.textContent.trim()) {
-          botText.textContent = "(No answer came back. If the orange banner above shows a connection warning, that's the cause. Otherwise the model finished without output — try again, or tell me what you see.)";
-        }
+        if (raw.trim()) { botText.innerHTML = mdToHtml(raw); }
+        else { botText.textContent = "(No answer came back. If the orange banner above shows a connection warning, that's the cause. Otherwise the model finished without output — try again, or tell me what you see.)"; }
         busy = false; $("send").disabled = false;
       }
 
