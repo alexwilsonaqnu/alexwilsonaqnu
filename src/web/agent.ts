@@ -35,6 +35,7 @@ export type AgentEvent =
   | { type: "token"; text: string }
   | { type: "tool"; name: string; phase: "start" }
   | { type: "mcp"; servers: { name: string; status: string }[] }
+  | { type: "final"; text: string }
   | { type: "facts"; facts: AnaplanFact[] }
   | { type: "verify"; ok: boolean; message: string }
   | { type: "message"; text: string }
@@ -50,31 +51,34 @@ const MODEL_GUID = process.env.ANAPLAN_MODEL_GUID ?? "";
 
 /** anaplan-ops surface (public Azure endpoint, no VPN, no subprocess). */
 const OPS_BRIEF = `
-You are the FP&A Chief of Staff. You BOTH retrieve and narrate, in a crisp CFO register.
+You are the FP&A Chief of Staff. You read Anaplan via anaplan-ops tools
+(mcp__anaplan-ops__*) and answer in a crisp CFO register. Every call needs
+workspaceId="${WS_GUID}" and a modelId — never ask the user for these.
 
-RETRIEVE via the anaplan-ops tools (mcp__anaplan-ops__*). Every call needs a
-workspaceId and a modelId — never ask the user for them.
+BE DECISIVE AND EFFICIENT — you have a limited turn budget. Make the FEWEST calls
+needed to read the answer. Do NOT re-explore, do NOT narrate every step, do NOT
+second-guess. Once you find the module + the variance line item, go STRAIGHT to
+read_cells.
 
-PICK THE MODEL FROM THE TOOL CALLS: workspace "${WS_GUID}" is configured. First call
-show_models (workspaceId="${WS_GUID}") and choose the model whose name/purpose best
-fits the user's question (e.g. a revenue/planning model for a revenue question). If
-none clearly fits, default to model "${MODEL_GUID}". Use the chosen model's id, with
-workspaceId "${WS_GUID}", on every subsequent call. If a tool reports the model is
-closed, call open_model first. State which model you used in your answer's source line.
+MODEL: default to modelId "${MODEL_GUID}". Only call show_models (workspaceId=
+"${WS_GUID}") if that model clearly cannot answer; never switch models more than once.
 
-Procedure (structure first — there is NO SQL on this surface):
-  1. show_modules → pick the module at the user's grain (prefer REP/OUT report modules).
-  2. show_lineitems (includeAll=true) → find a PRE-COMPUTED line item literally named
-     Variance / Delta / YoY / % Change / Growth / vs Prior, or paired Actual/Plan/Forecast.
-  3. show_savedviews → pick a view; read_cells (moduleId, viewId, pages for the slice)
-     to read the value. The stored variance line item IS the answer — read it.
+PROCEDURE (structure-first — this surface has NO SQL, so READ a stored line item;
+never compute a delta):
+  1. show_modules → pick ONE module (for variance, prefer a "Version Comparison" /
+     "Variance" / REP / OUT report module).
+  2. show_lineitems(includeAll=true) on that module → find the PRE-COMPUTED line item
+     named Variance / Delta / vs Plan / B(W) / % Change.
+  3. show_savedviews (and show_viewdetails only if you need the view's dimensions).
+  4. read_cells(moduleId, viewId, pages for the time/version/entity slice) → READ the
+     values. For a relative period ("last quarter/month"), resolve it from
+     show_currentperiod / show_modelcalendar in ONE call, then read.
+  5. Report the figures in a short markdown table. Stop.
 
-THE INVARIANT (§0): never originate, sum, difference, multiply, divide, ratio,
-annualize, or extrapolate a number. This surface cannot compute deltas, so you MUST
-read a stored variance/total line item — never calculate one yourself. If the model
-has no stored variance line item, say so and report the Actual and Plan you read,
-not a computed difference. Only numbers you actually read appear in your answer; they
-land in the provenance ledger automatically.
+THE INVARIANT (§0): never originate, sum, difference, multiply, divide, ratio, or
+extrapolate a number. Read a stored variance/total line item; if none exists, report
+the Actual and Plan you read (not a computed difference). Only numbers you actually
+read may appear in your answer — they're captured to the provenance ledger.
 `.trim();
 
 /** Chimera surface (internal endpoint, Calcite SQL — needs the Anaplan VPN). */
@@ -167,7 +171,7 @@ export async function* runTurn(
         allowedTools: ALLOWED_TOOLS,
         disallowedTools: DISALLOWED_TOOLS,
         canUseTool: async (toolName, input) => canUseTool(toolName, input as Record<string, unknown>),
-        maxTurns: 24,
+        maxTurns: 60,
       },
     });
 
@@ -227,8 +231,16 @@ export async function* runTurn(
           if (typeof msg.result === "string" && msg.result.trim()) answer = msg.result;
           // surface real failures instead of finishing silently
           if (msg.is_error || (typeof msg.subtype === "string" && msg.subtype !== "success")) {
-            const detail = typeof msg.result === "string" && msg.result ? msg.result : msg.subtype;
-            yield { type: "error", message: `Run ended: ${detail}` };
+            const sub = String(msg.subtype ?? "");
+            const friendly =
+              sub === "error_max_turns"
+                ? "The model ran out of steps before reading the numbers. Try a more specific question (one module / one period), e.g. \"Read Revenue Actual vs Plan from OUT IS Version Comparison for May 2026.\""
+                : sub === "error_during_execution"
+                  ? "The run hit an execution error partway through."
+                  : typeof msg.result === "string" && msg.result
+                    ? msg.result
+                    : `Run ended: ${sub}`;
+            yield { type: "error", message: friendly };
           }
           break;
         }
@@ -242,6 +254,9 @@ export async function* runTurn(
   } catch (err) {
     yield { type: "error", message: err instanceof Error ? err.message : String(err) };
   }
+
+  // Replace the streamed reasoning with the clean final answer.
+  if (answer.trim()) yield { type: "final", text: answer };
 
   // Persist the captured facts to the session ledger, then read them back.
   const ledger = new Ledger(sdkSessionId);

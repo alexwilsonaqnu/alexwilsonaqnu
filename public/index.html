@@ -252,9 +252,10 @@
               }
               else if (ev.type === "tool") { const n = (ev.name || "").replace(/^mcp__anaplan-(ops|chimera)__/, ""); setStatus("Querying Anaplan — " + n + "…"); }
               else if (ev.type === "token") { status.style.display = "none"; raw += ev.text; botText.textContent = raw; $("messages").scrollTop = $("messages").scrollHeight; }
+              else if (ev.type === "final") { status.style.display = "none"; raw = ev.text; botText.innerHTML = mdToHtml(raw); $("messages").scrollTop = $("messages").scrollHeight; }
               else if (ev.type === "facts") { facts.clear(); (ev.facts || []).forEach((f) => facts.set(f.requestId, f)); renderFacts(); }
               else if (ev.type === "verify") { const v = document.createElement("div"); v.className = "verify " + (ev.ok ? "ok" : "warn"); v.textContent = (ev.ok ? "✓ " : "⚠ ") + ev.message; bot.appendChild(v); }
-              else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; if (!raw) { raw = (ev.type === "error" ? "⚠️ " : "") + (ev.message || ev.text); botText.textContent = raw; } }
+              else if (ev.type === "message" || ev.type === "error") { status.style.display = "none"; const m = (ev.message || ev.text || ""); if (!raw) { raw = (ev.type === "error" ? "⚠️ " : "") + m; botText.textContent = raw; } else if (ev.type === "error") { const n = document.createElement("div"); n.className = "verify warn"; n.textContent = "⚠ " + m; bot.appendChild(n); } }
             }
           }
         } catch (e) { botText.textContent = "⚠️ " + (e.message || e); }
