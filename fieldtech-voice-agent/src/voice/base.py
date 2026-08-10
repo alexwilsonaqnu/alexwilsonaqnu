@@ -20,8 +20,8 @@ class VoiceProvider(ABC):
     name: str = "base"
 
     @abstractmethod
-    def transcribe(self, wav_bytes: bytes) -> str:
-        """Speech to text."""
+    def transcribe(self, audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
+        """Speech to text. The mic loop sends WAV; the browser sends webm/opus."""
 
     @abstractmethod
     def synthesize(self, text: str) -> bytes:
@@ -46,3 +46,21 @@ def pcm_to_wav(
 
 def looks_like_wav(payload: bytes) -> bool:
     return len(payload) >= 12 and payload[:4] == b"RIFF" and payload[8:12] == b"WAVE"
+
+
+_EXTENSIONS = {
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/webm": "webm",
+    "audio/ogg": "ogg",
+    "audio/mpeg": "mp3",
+    "audio/mp4": "mp4",
+    "audio/m4a": "m4a",
+}
+
+
+def filename_for(mime_type: str) -> str:
+    """Both speech APIs take the upload as multipart and infer the codec from the
+    filename extension as well as the content type — send one that matches."""
+    base = (mime_type or "").split(";")[0].strip().lower()
+    return f"audio.{_EXTENSIONS.get(base, 'wav')}"

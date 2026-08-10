@@ -20,7 +20,7 @@ from src.config import (
     HTTP_TIMEOUT_SECONDS,
 )
 from src.telemetry import span
-from src.voice.base import VoiceProvider, looks_like_wav, pcm_to_wav
+from src.voice.base import VoiceProvider, filename_for, looks_like_wav, pcm_to_wav
 
 
 class FishAudioProvider(VoiceProvider):
@@ -39,15 +39,15 @@ class FishAudioProvider(VoiceProvider):
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.api_key}"}
 
-    def transcribe(self, wav_bytes: bytes) -> str:
+    def transcribe(self, audio_bytes: bytes, mime_type: str = "audio/wav") -> str:
         import httpx
 
-        with span("voice.stt", provider=self.name) as attrs:
-            attrs["audio_bytes"] = len(wav_bytes)
+        with span("voice.stt", provider=self.name, mime=mime_type) as attrs:
+            attrs["audio_bytes"] = len(audio_bytes)
             response = httpx.post(
                 FISH_ASR_URL,
                 headers=self._headers(),
-                files={"audio": ("audio.wav", wav_bytes, "audio/wav")},
+                files={"audio": (filename_for(mime_type), audio_bytes, mime_type)},
                 data={"language": "en", "ignore_timestamps": "true"},
                 timeout=HTTP_TIMEOUT_SECONDS * 4,
             )

@@ -96,12 +96,19 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--text", action="store_true", help="text REPL (develop the brain)")
     mode.add_argument("--voice", action="store_true", help="push-to-talk voice loop")
+    mode.add_argument("--ui", action="store_true", help="browser demo UI (push-to-talk + diagrams)")
+    parser.add_argument("--port", type=int, default=8000, help="--ui port")
     parser.add_argument(
         "--provider", default=DEFAULT_VOICE_PROVIDER, choices=("elevenlabs", "fish")
     )
     args = parser.parse_args(argv)
 
     _preflight_or_exit()
+    if args.ui:
+        from src.ui.server import serve
+
+        serve(port=args.port)
+        return 0
     return run_text() if args.text else run_voice(args.provider)
 
 

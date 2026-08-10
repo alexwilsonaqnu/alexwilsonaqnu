@@ -42,10 +42,14 @@ python scripts/run_evals.py evals/train/tasks.jsonl
 python scripts/run_evals.py evals/holdout/tasks.jsonl
 python scripts/smoke_test.py
 
-# 5. Run it — text first, then voice
-python -m src.main --text
-python -m src.main --voice
+# 5. Run it
+python -m src.main --ui      # browser demo: push-to-talk + diagram panel  ← start here
+python -m src.main --text    # terminal REPL, for developing the brain
+python -m src.main --voice   # terminal push-to-talk, no browser
 ```
+
+**Demo identifiers: technician `T-1001`, model `WTW5057LW0`.** The UI shows them on a
+card, read from the fixture so they can't drift. Full walkthrough in **[DEMO.md](DEMO.md)**.
 
 `--text` and `--voice` both run preflight first and **refuse to start if it fails** — a bad
 key or a model your org can't reach should surface as a startup error with remediation, not
@@ -132,9 +136,11 @@ Watch it work: `tail -f observability/traces/spans.jsonl | jq`.
 ## Architecture
 
 ```
-voice (elevenlabs | fish)  ──┐          the ONLY layer that knows audio exists
-  src/voice/audio_io.py      │          telephony (SIP/Twilio) replaces this file alone
-                             ▼
+browser UI  src/ui/           ──┐       surfaces. Each calls Orchestrator.turn() and
+CLI --text / --voice            │       holds no repair logic of its own.
+voice (elevenlabs | fish)  ──┐  │       telephony (SIP/Twilio) replaces audio_io.py alone
+  src/voice/audio_io.py      │  │
+                             ▼  ▼
         Orchestrator  src/agent/orchestrator.py      hand-rolled loop, auto-exec OFF
              │  system prompt: src/agent/prompts.py
              │  + skills/voice-turns.md, skills/safety-callouts.md
@@ -176,6 +182,7 @@ the same files and because they port into `.claude/skills/` unchanged.
 | Figure extraction | **real** | embedded images cropped to PNG |
 | `manual_search` | **real, BM25** | a vector index replaces the internals; contract holds |
 | Evals + grader | **real, keyless** | deterministic; no model calls |
+| Demo UI (push-to-talk, diagram panel) | **real** | stdlib HTTP server, no extra deps; endpoints + rendering verified headlessly, mic path unrun (no speech key) |
 | ElevenLabs / Fish Audio clients | **real** | written against verified current endpoints; unrun by me (no keys) |
 | Mic + speaker I/O | **real** | `sounddevice`; telephony replaces this file |
 | `salesforce_lookup` / `salesforce_writeback` | **stubbed** | JSON fixture in, JSONL out |
@@ -211,7 +218,9 @@ enforces it. `evals/holdout/` is never used to tune anything.
 
 ```
 CLAUDE.md                    conventions, invariant, read-only boundary
+DEMO.md                      identifiers, the five demo beats, what to say when asked
 .env.example                 copy to .env, paste two keys
+src/ui/                      browser demo: push-to-talk + technician's-app panel
 agents/retrieval-evaluator.md    subagent prompt
 skills/voice-turns.md            turn shaping (≤2 sentences, no markdown, read-backs)
 skills/safety-callouts.md        verbatim quoting, citation, the stop condition
