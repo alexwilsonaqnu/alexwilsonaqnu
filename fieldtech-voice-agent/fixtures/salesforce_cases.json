@@ -1,0 +1,27 @@
+{
+  "technicians": [
+    {
+      "technician_id": "T-1001",
+      "name": "Dana Ruiz",
+      "region": "Midwest / IL-3",
+      "open_case": {
+        "case_id": "5003X00001Kq9ZA",
+        "status": "Open",
+        "opened_at": "2026-08-08T14:12:00Z",
+        "customer_name": "Marguerite Okafor",
+        "appliance_type": "Top-load washer",
+        "brand": "Whirlpool",
+        "model_number": "WTW5057LW0",
+        "serial_number": "CX4412873",
+        "issue_summary": "fills but does not agitate; F7E1 intermittent",
+        "prior_visits": 0
+      }
+    },
+    {
+      "technician_id": "T-1042",
+      "name": "Priya Nandakumar",
+      "region": "Southeast / GA-1",
+      "open_case": null
+    }
+  ]
+}

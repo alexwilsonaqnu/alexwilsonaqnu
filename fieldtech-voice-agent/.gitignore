@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ingestion + runtime artifacts (regenerate with make_test_manual.py + ingest_pdf)
+data/*
+!data/.gitkeep
+!data/figures/
+data/figures/*
+!data/figures/.gitkeep
+
+# traces
+observability/traces/*
+!observability/traces/.gitkeep

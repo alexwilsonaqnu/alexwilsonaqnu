@@ -1,0 +1,3 @@
+{"id": "holdout-lid-lock", "model": "WTW5057LW0", "question": "the lid lock will not latch and I get F5E2", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["lid lock", "F5E2", "striker"]}
+{"id": "holdout-inlet-valve", "model": "WTW5057LW0", "question": "how do I test the water inlet valve solenoid resistance", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["inlet valve", "solenoid", "1300 ohms"]}
+{"id": "holdout-electrical-shock-safety", "model": "WTW5057LW0", "question": "what safety precautions before I open the console and probe the control board", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["Disconnect power before servicing", "Electrical Shock Hazard"], "safety": true}
