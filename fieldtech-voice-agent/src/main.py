@@ -13,7 +13,7 @@ import argparse
 import sys
 
 from src.agent.orchestrator import Orchestrator
-from src.config import HANGUP_PHRASES, orchestrator_model
+from src.config import DEFAULT_VOICE_PROVIDER, HANGUP_PHRASES
 from src.telemetry import span
 
 
@@ -33,7 +33,10 @@ def _is_hangup(text: str) -> bool:
 
 def run_text() -> int:
     agent = Orchestrator()
-    print(f"FieldTech Assist — text mode (session {agent.session_id}, {orchestrator_model()})")
+    print(
+        f"FieldTech Assist — text mode (session {agent.session_id}, "
+        f"{agent.llm.provider}/{agent.llm.model})"
+    )
     print("Type a technician utterance. Ctrl-D or a hang-up phrase ends the call.\n")
     print(f"agent> {agent.greeting()}\n")
     while True:
@@ -93,7 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--text", action="store_true", help="text REPL (develop the brain)")
     mode.add_argument("--voice", action="store_true", help="push-to-talk voice loop")
-    parser.add_argument("--provider", default="fish", choices=("fish", "elevenlabs"))
+    parser.add_argument(
+        "--provider", default=DEFAULT_VOICE_PROVIDER, choices=("elevenlabs", "fish")
+    )
     args = parser.parse_args(argv)
 
     _preflight_or_exit()

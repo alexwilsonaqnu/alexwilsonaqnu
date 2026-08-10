@@ -13,35 +13,61 @@ This file is for Claude Code sessions working on this repo. The *runtime brain i
 > WARNING/CAUTION is quoted verbatim from the source text. If no authoritative safety text
 > is retrievable for a hazardous step, the agent offers a warm transfer and stops.
 
-## Model policy — Model Garden only
-- Initialize `google-genai` in **Vertex / Gemini Enterprise Agent Platform mode only**:
-  `GOOGLE_GENAI_USE_VERTEXAI=true` (the SDK also accepts the newer
+## Model policy
+The brain is swappable behind `src/agent/llm/`. `LLM_PROVIDER` picks it; nothing above
+that layer changes. **Model ids are config, never literals in agent code** — ids churn
+between releases, so a swap must be an env change.
+
+**Claude (default, `LLM_PROVIDER=anthropic`)** — `ANTHROPIC_API_KEY` and nothing else.
+- Orchestrator: `ANTHROPIC_MODEL`, default `claude-opus-5`.
+- Retrieval evaluator: `ANTHROPIC_EVAL_MODEL`, default `claude-haiku-4-5` — the judge is
+  high-volume and low-stakes, so it runs on the cheapest model that reliably emits the
+  schema. That is a deliberate per-role choice; the orchestrator stays on Opus.
+- **Never send `temperature`, `top_p`, or `top_k`** — they are removed on current models
+  and return a 400. Depth control is `output_config.effort` (`CLAUDE_EFFORT`, default
+  `low` for voice latency).
+- **Leave thinking on.** It is on by default and `max_tokens` caps thinking + text
+  together. Disabling it is the more expensive lever and can make the model emit a tool
+  call as plain text — the call then silently never runs — or leak `<thinking>` tags into
+  a spoken reply. Lower `effort` instead.
+- **No assistant prefill.** It returns a 400. Structured output is
+  `output_config.format` with a JSON schema.
+- A safety classifier can decline a request (`stop_reason == "refusal"`). Check
+  `stop_reason` before reading `content`, and keep the server-side fallback on
+  (`ANTHROPIC_FALLBACKS=default`) so a decline re-runs rather than dropping a call.
+
+**Gemini (`LLM_PROVIDER=gemini`)** — Model Garden only.
+- `GOOGLE_GENAI_USE_VERTEXAI=true` (the SDK also accepts the newer
   `GOOGLE_GENAI_USE_ENTERPRISE=true`; it wins on conflict), plus `GOOGLE_CLOUD_PROJECT`,
   `GOOGLE_CLOUD_LOCATION`, and Application Default Credentials.
 - **Never** support or fall back to `GEMINI_API_KEY` / AI Studio. The production tenant
   serves models exclusively through Model Garden, and the POC must exercise the same path
-  (project enablement, quotas, regional availability included). `src/agent/model_client.py`
-  raises if an AI Studio key is the only credential present.
-- **Model ids are config, never literals in agent code.** Garden names churn
-  (2.5 → 3 → 3.5 → 3.6 inside a year); a swap must be an env change.
-  - Orchestrator: `GEMINI_MODEL`, default `gemini-3.5-flash`.
-  - Retrieval evaluator: `GEMINI_EVAL_MODEL`, default `gemini-3.5-flash-lite`.
-- `scripts/preflight.py` proves each configured model is reachable in *this* project and
-  region before any session starts. `--text` and `--voice` refuse to run if it fails.
+  (project enablement, quotas, regional availability included).
+- Orchestrator `GEMINI_MODEL` (default `gemini-3.5-flash`), evaluator
+  `GEMINI_EVAL_MODEL` (default `gemini-3.5-flash-lite`).
+
+`scripts/preflight.py` proves each configured model is reachable with the credentials you
+actually have. `--text` and `--voice` refuse to run if it fails.
 
 ## Architecture — five layers (we build the harness; there is no `.claude/` runtime)
+0. **Brain** (`src/agent/llm/`) — `LLMClient` is the swap seam: `complete()`,
+   `complete_json()`, and history bookkeeping. Conversation history is provider-shaped and
+   opaque to callers — you only touch it through `append_*`. That's deliberate: a neutral
+   message format leaks exactly where it hurts (thinking blocks, tool_use ids, signatures).
 1. **Tools** (`src/tools/`) — `salesforce_lookup`, `service_matters_search`, `manual_search`,
-   `get_figure`, `salesforce_writeback`. Declared as Gemini function declarations in
-   `src/agent/tool_schemas.py`. Invoked **only** through the dispatcher.
+   `get_figure`, `salesforce_writeback`. Declared once as provider-neutral JSON Schema in
+   `src/agent/tool_schemas.py`; each client adapts. Invoked **only** through the dispatcher.
 2. **Skills** (`skills/*.md`) — markdown + frontmatter, loaded at session start and appended
    to the system prompt. Keep them as separate files, never inlined strings: the future app
    agent reuses them, and they port 1:1 into `.claude/skills/` if the brain moves to Claude.
 3. **Agent** (`src/agent/orchestrator.py`, prompt in `src/agent/prompts.py`) — hand-rolled
-   tool loop. Automatic function calling is **OFF**; we dispatch every call ourselves,
-   max `MAX_TOOL_ROUNDS` rounds per user turn. Owning the dispatcher is what makes the
-   hooks enforceable in code instead of in prompt text.
+   tool loop. Automatic tool execution is **OFF** on both providers; we dispatch every call
+   ourselves, max `MAX_TOOL_ROUNDS` rounds per user turn. Owning the dispatcher is what
+   makes the hooks enforceable in code instead of in prompt text.
+   On Claude, send **all** `tool_result` blocks back in **one** user message — splitting
+   them across messages trains the model to stop making parallel calls.
 4. **Subagent** (`src/agent/retrieval_evaluator.py`, prompt in `agents/retrieval-evaluator.md`)
-   — a SEPARATE Gemini call on `GEMINI_EVAL_MODEL` with its own context. LLM-as-judge on
+   — a SEPARATE model call on the cheap eval model, with its own context. LLM-as-judge on
    retrieval quality. Its exploration never enters the orchestrator's context; only the
    verdict does.
 5. **No agent teams.** Out of scope.
@@ -76,7 +102,7 @@ exporter must not drop a technician's call.
 | `src/ingest/ingest_pdf.py` | pdfplumber page text | Document AI layout parser |
 | `salesforce_*` | JSON fixtures | Salesforce REST |
 | `get_figure` push | `data/figure_pushes.jsonl` | real push to the technician's app |
-| model client | Gemini on Model Garden | Claude is served in the *same* Model Garden — swapping the brain changes `model_client.py` only; tenant, auth, skills and tool contracts stay |
+| brain | `LLMClient` in `src/agent/llm/` | already demonstrated, not asserted: Claude and Gemini both run the same orchestrator, skills, agent prompts, hooks and tool contracts. Claude is also served in Model Garden, so an enterprise tenant can keep its cloud auth and still swap the model |
 
 Leave a seam and a one-line comment where production differs. Don't build an abstraction
 for it.
@@ -89,6 +115,7 @@ python scripts/make_test_manual.py        # synthetic 3-page manual
 python -m src.ingest.ingest_pdf <pdf> --models WTW5057LW0
 python scripts/run_evals.py evals/train/tasks.jsonl      # keyless, deterministic
 python scripts/run_evals.py evals/holdout/tasks.jsonl
+python scripts/smoke_test.py                             # keyless seam checks
 python -m src.main --text
-python -m src.main --voice --provider fish|elevenlabs
+python -m src.main --voice --provider elevenlabs|fish
 ```

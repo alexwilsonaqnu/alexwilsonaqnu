@@ -31,10 +31,49 @@ TRACES_PATH = ROOT / "observability" / "traces" / "spans.jsonl"
 PROTECTED_WRITE_PREFIXES = (ROOT / "evals", ROOT / "observability" / "manifest")
 
 
-# --- models (env-selectable, Model Garden only) ------------------------------
+# --- brain selection ---------------------------------------------------------
+# Model ids are config, never literals in agent code — ids churn between releases and a
+# swap must be an env change.
+DEFAULT_LLM_PROVIDER = "anthropic"
+
+
+def llm_provider() -> str:
+    return os.environ.get("LLM_PROVIDER", DEFAULT_LLM_PROVIDER).strip().lower()
+
+
+# --- Claude (default brain, API key only) ------------------------------------
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-5"
+# The judge is high-volume and low-stakes, so it runs on the cheapest model that
+# reliably emits the JSON schema. That is a deliberate cost choice for this role, not a
+# default — the orchestrator stays on Opus.
+DEFAULT_ANTHROPIC_EVAL_MODEL = "claude-haiku-4-5"
+# Depth control on Claude is `effort`, not temperature: sampling parameters are rejected
+# on current models. "low" keeps thinking on (safer and cheaper than disabling it) while
+# staying inside a phone call's latency budget. Raise to "high" for harder diagnostics.
+DEFAULT_EFFORT = "low"
+
+
+def anthropic_model() -> str:
+    return os.environ.get("ANTHROPIC_MODEL", DEFAULT_ANTHROPIC_MODEL)
+
+
+def anthropic_eval_model() -> str:
+    return os.environ.get("ANTHROPIC_EVAL_MODEL", DEFAULT_ANTHROPIC_EVAL_MODEL)
+
+
+def effort() -> str:
+    return os.environ.get("CLAUDE_EFFORT", DEFAULT_EFFORT)
+
+
+def anthropic_fallbacks() -> str | None:
+    """Server-side refusal fallback. Set ANTHROPIC_FALLBACKS="" to disable."""
+    value = os.environ.get("ANTHROPIC_FALLBACKS", "default")
+    return value or None
+
+
+# --- Gemini (alternate brain, Model Garden only) -----------------------------
 # Verified GA in Model Garden as of 2026-08: gemini-3.5-flash, gemini-3.5-flash-lite,
-# gemini-3.6-flash, gemini-3.1-pro. For harder reasoning at higher latency, set
-# GEMINI_MODEL=gemini-3.1-pro (the current Pro GA id) — voice latency will suffer.
+# gemini-3.6-flash, gemini-3.1-pro.
 DEFAULT_ORCHESTRATOR_MODEL = "gemini-3.5-flash"
 DEFAULT_EVAL_MODEL = "gemini-3.5-flash-lite"
 
@@ -45,11 +84,6 @@ def orchestrator_model() -> str:
 
 def eval_model() -> str:
     return os.environ.get("GEMINI_EVAL_MODEL", DEFAULT_EVAL_MODEL)
-
-
-def configured_models() -> dict[str, str]:
-    """Every model this POC will call, keyed by role. Preflight walks this."""
-    return {"orchestrator": orchestrator_model(), "retrieval_evaluator": eval_model()}
 
 
 def gcp_project() -> str | None:
@@ -64,6 +98,11 @@ def gcp_location() -> str:
 MAX_TOOL_ROUNDS = 15  # per user turn
 MAX_EVALUATOR_TOOL_ROUNDS = 2  # the judge may refine retrieval at most twice
 
+# On Claude, max_tokens caps thinking + response text together, so leave headroom above
+# what a two-sentence spoken reply needs.
+MAX_TURN_TOKENS = 4096
+MAX_EVALUATOR_TOKENS = 2048
+
 # post-hook trigger: retrieval is "weak" below this BM25 score, or when hits span >1 doc
 WEAK_RETRIEVAL_SCORE = 3.0
 
@@ -76,6 +115,7 @@ def service_matters_url() -> str:
 HTTP_TIMEOUT_SECONDS = 8.0
 
 # --- voice -------------------------------------------------------------------
+DEFAULT_VOICE_PROVIDER = "elevenlabs"
 AUDIO_SAMPLE_RATE = 16_000
 AUDIO_CHANNELS = 1
 

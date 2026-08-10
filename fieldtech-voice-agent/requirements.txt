@@ -1,4 +1,10 @@
+# brain — Claude (default). Only ANTHROPIC_API_KEY is needed.
+anthropic>=0.121.0
+
+# brain — Gemini on Model Garden (alternate; LLM_PROVIDER=gemini). Needs gcloud ADC.
+# Comment this out if you only ever run the Claude brain.
 google-genai>=1.0.0
+
 httpx>=0.27
 pdfplumber>=0.11
 rank-bm25>=0.2.2
@@ -6,5 +12,6 @@ numpy>=1.26
 sounddevice>=0.4.6
 opentelemetry-sdk>=1.25
 opentelemetry-exporter-otlp-proto-http>=1.25
+
 # test-fixture generation only (scripts/make_test_manual.py); not imported at runtime
 reportlab>=4.0

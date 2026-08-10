@@ -4,11 +4,8 @@ A voice agent that guides Whirlpool field technicians through appliance repairs 
 phone. This is **POC 2: a voice agent on the same brain** — the agent core is identical to
 what a mobile app would use, and voice is a thin surface bolted on top of it.
 
-The brain runs on **Gemini served from Model Garden on the Gemini Enterprise Agent
-Platform** (the post-April-2026 name for Vertex AI). There is no AI Studio path: the
-production tenant serves models exclusively through Model Garden, so the POC exercises the
-same project enablement, quotas and regional availability. The voice layer is **Fish Audio**
-by default.
+**Two API keys and you're running.** Brain: **Claude** (Anthropic API). Voice:
+**ElevenLabs**. No cloud project, no `gcloud`, no ADC.
 
 ## What it does
 
@@ -24,65 +21,77 @@ by default.
 ## Quickstart
 
 ```bash
-cd fieldtech-voice-agent
-python -m venv .venv && source .venv/bin/activate
+unzip fieldtech-voice-agent.zip && cd fieldtech-voice-agent
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-# 1. Point at your Model Garden tenant (no API keys — ADC only)
-export GOOGLE_GENAI_USE_VERTEXAI=true      # SDK also accepts GOOGLE_GENAI_USE_ENTERPRISE=true
-export GOOGLE_CLOUD_PROJECT=<your-project>
-export GOOGLE_CLOUD_LOCATION=global        # or a region where your models are enabled
-gcloud auth application-default login
+# 1. Two keys
+cp .env.example .env         # then paste your keys into it
+set -a; source .env; set +a
 
-# 2. Prove every configured model is reachable in THIS project/region
+# 2. Prove the brain is reachable
 python scripts/preflight.py
 
-# 3. Build and ingest the synthetic test manual
+# 3. Build and ingest the synthetic test manual (data/ ships empty)
 python scripts/make_test_manual.py
 python -m src.ingest.ingest_pdf data/WTW5057LW0_service_manual.pdf --models WTW5057LW0
 
-# 4. Gates (all keyless except preflight)
+# 4. Gates — everything except preflight runs keyless
 python -m compileall src scripts
 python scripts/run_evals.py evals/train/tasks.jsonl
 python scripts/run_evals.py evals/holdout/tasks.jsonl
 python scripts/smoke_test.py
 
-# 5. Run it
+# 5. Run it — text first, then voice
 python -m src.main --text
-python -m src.main --voice --provider fish     # needs FISH_AUDIO_API_KEY
+python -m src.main --voice
 ```
 
-`--text` and `--voice` both run preflight first and **refuse to start if it fails** — a
-missing Garden enablement should surface as a startup error with remediation, not as a 404
-in the middle of a technician's turn.
+`--text` and `--voice` both run preflight first and **refuse to start if it fails** — a bad
+key or a model your org can't reach should surface as a startup error with remediation, not
+as a 404 in the middle of a technician's turn.
+
+On macOS, `--voice` needs PortAudio for `sounddevice`: `brew install portaudio`. `--text`
+never imports it.
 
 ### Environment
 
 | Variable | Purpose |
 |---|---|
-| `GOOGLE_GENAI_USE_VERTEXAI` / `GOOGLE_GENAI_USE_ENTERPRISE` | must be `true`; Model Garden mode |
-| `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION` | tenant and region (`global` is fine) |
-| `GEMINI_MODEL` | orchestrator model, default `gemini-3.5-flash` |
-| `GEMINI_EVAL_MODEL` | retrieval-evaluator model, default `gemini-3.5-flash-lite` |
+| `ANTHROPIC_API_KEY` | **required** — the brain |
+| `ELEVENLABS_API_KEY` | required for `--voice` (default provider) |
+| `ELEVENLABS_VOICE_ID` | optional voice override |
+| `ANTHROPIC_MODEL` | orchestrator model, default `claude-opus-5` |
+| `ANTHROPIC_EVAL_MODEL` | retrieval-evaluator model, default `claude-haiku-4-5` |
+| `CLAUDE_EFFORT` | `low` (default, voice latency) … `max` |
+| `ANTHROPIC_FALLBACKS` | `default` (on). Empty string disables the refusal fallback |
+| `LLM_PROVIDER` | `anthropic` (default) or `gemini` |
+| `FISH_AUDIO_API_KEY` | only for `--provider fish` |
 | `SERVICE_MATTERS_URL` | stage-1 search endpoint override |
-| `FISH_AUDIO_API_KEY`, `FISH_AUDIO_VOICE_ID` | Fish Audio (default provider) |
-| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | ElevenLabs (`--provider elevenlabs`) |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | optional; adds OTLP export on top of the JSONL trace file |
-
-**Setting `GEMINI_API_KEY` or `GOOGLE_API_KEY` is a hard error**, not a fallback. Unset it.
 
 ### Model choice
 
-Model ids are config, never literals in agent code — Garden names churn (2.5 → 3 → 3.5 →
-3.6 within a year), so a swap is an env change. GA ids verified in Model Garden as of
-2026-08: `gemini-3.5-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-pro`.
+Model ids are config, never literals in agent code — ids churn between releases, so a swap
+is an env change.
 
-- Default orchestrator is `gemini-3.5-flash`: function calling plus voice-appropriate
-  latency.
-- For harder diagnostic reasoning, `GEMINI_MODEL=gemini-3.1-pro` is the current Pro GA id.
-  Expect the extra latency to be audible on a phone call.
-- The retrieval evaluator is high-volume and low-stakes, so it runs on the cheapest Garden
-  model that reliably emits the JSON schema.
+- The orchestrator runs on `claude-opus-5`. For harder diagnostic reasoning raise
+  `CLAUDE_EFFORT` before reaching for a different model; expect the extra latency to be
+  audible on a phone call.
+- The retrieval evaluator runs on `claude-haiku-4-5`. The judge is high-volume and
+  low-stakes, so it uses the cheapest model that reliably emits the schema — a deliberate
+  per-role choice, not a global downgrade.
+
+Three Claude-specific rules the code enforces, each of which is a 400 or a silent
+misbehaviour if you get it wrong:
+
+- **No `temperature` / `top_p` / `top_k`.** Removed on current models — they return a 400.
+  Depth is `output_config.effort`.
+- **Thinking stays on.** It's on by default and `max_tokens` caps thinking + reply text
+  together. Disabling it can make the model write a tool call into its visible text — the
+  call then silently never runs — or leak `<thinking>` tags into a spoken reply. Lower
+  `effort` instead; that's the cheaper lever anyway.
+- **No assistant prefill.** Structured output is `output_config.format` with a JSON schema.
 
 ## Demo script (`--text` mode)
 
@@ -111,8 +120,8 @@ tech>  can you show me where the capacitor is?
 
 tech>  it's making a noise
           -> weak retrieval (top BM25 score ~0.12) trips the post-hook
-          -> retrieval evaluator fires on GEMINI_EVAL_MODEL, returns
-             NEEDS_RERETRIEVAL / ESCALATE — the orchestrator never sees its exploration
+          -> retrieval evaluator fires on the cheap model, returns
+             NEEDS_RERETRIEVAL or ESCALATE — the orchestrator never sees its exploration
 
 tech>  goodbye
           -> salesforce_writeback appends the resolution to data/writeback_log.jsonl
@@ -123,10 +132,10 @@ Watch it work: `tail -f observability/traces/spans.jsonl | jq`.
 ## Architecture
 
 ```
-voice (fish | elevenlabs)  ──┐          the ONLY layer that knows audio exists
+voice (elevenlabs | fish)  ──┐          the ONLY layer that knows audio exists
   src/voice/audio_io.py      │          telephony (SIP/Twilio) replaces this file alone
                              ▼
-        Orchestrator  src/agent/orchestrator.py      hand-rolled loop, AFC OFF
+        Orchestrator  src/agent/orchestrator.py      hand-rolled loop, auto-exec OFF
              │  system prompt: src/agent/prompts.py
              │  + skills/voice-turns.md, skills/safety-callouts.md
              ▼
@@ -137,11 +146,13 @@ voice (fish | elevenlabs)  ──┐          the ONLY layer that knows audio ex
    hooks.py       src/tools/       salesforce_lookup · service_matters_search
    pre:  block                      manual_search · get_figure · salesforce_writeback
      writes to evals/**
-   post: weak manual_search  ──▶  retrieval evaluator (SEPARATE Gemini call,
+   post: weak manual_search  ──▶  retrieval evaluator (SEPARATE model call,
                                    own context, ≤2 refinement searches, JSON verdict)
+
+  everything above talks to  src/agent/llm/LLMClient  ──▶  claude | gemini
 ```
 
-**Automatic function calling is off on purpose.** Owning the dispatcher is what makes the
+**Automatic tool execution is off on purpose.** Owning the dispatcher is what makes the
 hooks enforceable in code rather than in prompt text: the pre-hook raises on a write into
 `evals/**` or `observability/manifest/**` without asking the model, and the post-hook fires
 the retrieval evaluator whether or not the model would have thought to.
@@ -153,18 +164,19 @@ the same files and because they port into `.claude/skills/` unchanged.
 
 | Piece | Status | Note |
 |---|---|---|
-| Model Garden client, Vertex-only auth | **real** | ADC; AI Studio keys hard-rejected |
-| Preflight per-model reachability check | **real** | `count_tokens` against your tenant |
-| Hand-rolled tool loop, AFC disabled | **real** | ≤15 tool rounds/turn, then a forced finish |
+| Claude brain (Anthropic API) | **real** | API key only; no sampling params, thinking on, refusal fallback enabled |
+| Gemini brain (Model Garden) | **real** | `LLM_PROVIDER=gemini`; ADC only, AI Studio keys hard-rejected |
+| Preflight per-model reachability | **real** | `count_tokens` against your key |
+| Hand-rolled tool loop, auto-exec off | **real** | ≤15 tool rounds/turn, then a forced finish |
 | Hooks (pre write-block, post evaluator trigger) | **real** | verified by `scripts/smoke_test.py` |
-| Retrieval evaluator subagent | **real** | separate model call, JSON response schema |
+| Retrieval evaluator subagent | **real** | separate model call, JSON-schema-constrained verdict |
 | Skills loaded from markdown | **real** | frontmatter parsed, appended to system prompt |
 | OTel spans | **real** | JSONL always; OTLP when the endpoint env var is set |
 | PDF ingestion | **real, thin** | pdfplumber page text; Document AI replaces it later |
 | Figure extraction | **real** | embedded images cropped to PNG |
-| `manual_search` | **real, BM25** | Vertex vector index replaces the internals; contract holds |
+| `manual_search` | **real, BM25** | a vector index replaces the internals; contract holds |
 | Evals + grader | **real, keyless** | deterministic; no model calls |
-| Fish Audio / ElevenLabs clients | **real** | written against verified current endpoints; unrun here (no keys) |
+| ElevenLabs / Fish Audio clients | **real** | written against verified current endpoints; unrun by me (no keys) |
 | Mic + speaker I/O | **real** | `sounddevice`; telephony replaces this file |
 | `salesforce_lookup` / `salesforce_writeback` | **stubbed** | JSON fixture in, JSONL out |
 | `service_matters_search` | **stubbed in practice** | real HTTP call, falls back to the local registry offline |
@@ -174,11 +186,11 @@ the same files and because they port into `.claude/skills/` unchanged.
 
 ### Brain-swap path
 
-Claude models are served from the **same** Model Garden. Moving the brain to Claude changes
-the model client (`src/agent/model_client.py`) and the function-declaration format
-(`src/agent/tool_schemas.py`) — tenant, auth, prompts, skills, agent files and tool
-contracts all stay as they are, and `skills/*.md` plus `agents/*.md` port into `.claude/`
-as-is.
+This is demonstrated, not asserted: `LLM_PROVIDER=gemini` runs the **same** orchestrator,
+dispatcher, hooks, skills, agent prompt, tool contracts and evals against Gemini on Model
+Garden. Only `src/agent/llm/<provider>_client.py` differs. Claude is also served in Model
+Garden, so an enterprise tenant that wants cloud-native auth can keep its project and
+credentials and still change which model answers.
 
 ## Evals
 
@@ -199,15 +211,17 @@ enforces it. `evals/holdout/` is never used to tune anything.
 
 ```
 CLAUDE.md                    conventions, invariant, read-only boundary
+.env.example                 copy to .env, paste two keys
 agents/retrieval-evaluator.md    subagent prompt
 skills/voice-turns.md            turn shaping (≤2 sentences, no markdown, read-backs)
 skills/safety-callouts.md        verbatim quoting, citation, the stop condition
 fixtures/salesforce_cases.json   T-1001 Dana Ruiz / WTW5057LW0 / CX4412873
+src/agent/llm/               the brain seam: base, anthropic_client, gemini_client
 src/agent/                   orchestrator, prompts, skills loader, tool schemas,
-                             hooks, dispatcher, retrieval evaluator, model client
+                             hooks, dispatcher, retrieval evaluator
 src/tools/                   the five tools
 src/ingest/ingest_pdf.py     pdfplumber -> page chunks + cropped figures
-src/voice/                   VoiceProvider ABC, fish, elevenlabs, mic/speaker I/O
+src/voice/                   VoiceProvider ABC, elevenlabs, fish, mic/speaker I/O
 src/telemetry/               span() -> spans.jsonl (+ OTLP)
 scripts/                     preflight, run_evals, make_test_manual, smoke_test
 ```
