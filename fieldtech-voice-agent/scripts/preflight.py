@@ -34,12 +34,15 @@ _SETUP = {
 }
 
 
-def _report_credentials() -> None:
-    """Show what actually landed in the environment, masked. Most 'invalid key' reports
-    are really a key that never loaded, or one carrying a stray quote or newline."""
+def _report_credentials() -> list[str]:
+    """Show what actually landed in the environment, masked, and return the names of any
+    keys that cannot possibly work. Most 'invalid key' reports are really a key that never
+    loaded, an unedited placeholder, or one carrying a stray quote or newline — none of
+    which are worth spending an API round trip and a confusing 401 to discover."""
     import os
 
     watched = ("ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY", "FISH_AUDIO_API_KEY")
+    blocking: list[str] = []
     print("  credentials seen:")
     for name in watched:
         raw = os.environ.get(name)
@@ -52,15 +55,37 @@ def _report_credentials() -> None:
             notes.append("HAS SURROUNDING WHITESPACE")
         if any(q in key for q in ('"', "'", "“", "”")):
             notes.append("CONTAINS A QUOTE CHARACTER")
+            blocking.append(name)
+        if "..." in key or "…" in key or key.lower() in ("changeme", "your-key-here"):
+            notes.append("STILL THE .env.example PLACEHOLDER")
+            blocking.append(name)
+        elif len(key) < 20:
+            notes.append(f"ONLY {len(key)} CHARS — far too short for a real key")
+            blocking.append(name)
+        masked = key if len(key) <= 12 else f"{key[:7]}…{key[-4:]}"
         suffix = f"  <- {', '.join(notes)}" if notes else ""
-        print(f"    {name:<20} {key[:7]}…{key[-4:]} ({len(key)} chars){suffix}")
+        print(f"    {name:<20} {masked} ({len(key)} chars){suffix}")
     print()
+
+    if blocking:
+        names = sorted(set(blocking))
+        subject = f"{', '.join(names)} are not usable keys" if len(names) > 1 else f"{names[0]} is not a usable key"
+        print(f"  {subject}.\n")
+        print("  Paste the real value into .env — bare, no quotes, nothing but the key:")
+        print("      ANTHROPIC_API_KEY=sk-ant-api03-<the long string from the console>")
+        print("  then reload it:")
+        print("      set -a; source .env; set +a\n")
+        print("  Only ANTHROPIC_API_KEY is needed for --text; ElevenLabs is for --voice.\n")
+    return sorted(set(blocking))
 
 
 def run(verbose: bool = False) -> int:
     provider = llm_provider()
     print(f"FieldTech Assist preflight — brain: {provider}\n")
-    _report_credentials()
+    blocking = _report_credentials()
+    if provider == "anthropic" and "ANTHROPIC_API_KEY" in blocking:
+        # No point spending a round trip to be told 'invalid x-api-key'.
+        return 1
 
     try:
         clients = configured_clients()
