@@ -34,9 +34,33 @@ _SETUP = {
 }
 
 
+def _report_credentials() -> None:
+    """Show what actually landed in the environment, masked. Most 'invalid key' reports
+    are really a key that never loaded, or one carrying a stray quote or newline."""
+    import os
+
+    watched = ("ANTHROPIC_API_KEY", "ELEVENLABS_API_KEY", "FISH_AUDIO_API_KEY")
+    print("  credentials seen:")
+    for name in watched:
+        raw = os.environ.get(name)
+        if not raw:
+            print(f"    {name:<20} (not set)")
+            continue
+        key = raw.strip()
+        notes = []
+        if key != raw:
+            notes.append("HAS SURROUNDING WHITESPACE")
+        if any(q in key for q in ('"', "'", "“", "”")):
+            notes.append("CONTAINS A QUOTE CHARACTER")
+        suffix = f"  <- {', '.join(notes)}" if notes else ""
+        print(f"    {name:<20} {key[:7]}…{key[-4:]} ({len(key)} chars){suffix}")
+    print()
+
+
 def run(verbose: bool = False) -> int:
     provider = llm_provider()
     print(f"FieldTech Assist preflight — brain: {provider}\n")
+    _report_credentials()
 
     try:
         clients = configured_clients()

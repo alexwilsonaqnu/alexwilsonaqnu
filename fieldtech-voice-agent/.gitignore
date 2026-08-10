@@ -3,6 +3,12 @@ __pycache__/
 .venv/
 venv/
 
+# secrets — never commit. Declared here (not only in a parent .gitignore) so this
+# directory is safe on its own, e.g. unzipped standalone and `git init`ed.
+.env
+.env.*
+!.env.example
+
 # ingestion + runtime artifacts (regenerate with make_test_manual.py + ingest_pdf)
 data/*
 !data/.gitkeep

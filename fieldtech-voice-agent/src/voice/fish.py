@@ -27,7 +27,8 @@ class FishAudioProvider(VoiceProvider):
     name = "fish"
 
     def __init__(self) -> None:
-        self.api_key = os.environ.get("FISH_AUDIO_API_KEY")
+        # .strip(): see the note in the ElevenLabs provider — whitespace looks like a 401.
+        self.api_key = (os.environ.get("FISH_AUDIO_API_KEY") or "").strip()
         if not self.api_key:
             raise RuntimeError(
                 "FISH_AUDIO_API_KEY is not set. Export it, or run with --provider elevenlabs."

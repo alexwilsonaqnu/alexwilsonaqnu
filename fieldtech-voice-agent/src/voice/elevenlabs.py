@@ -29,7 +29,9 @@ class ElevenLabsProvider(VoiceProvider):
     name = "elevenlabs"
 
     def __init__(self) -> None:
-        self.api_key = os.environ.get("ELEVENLABS_API_KEY")
+        # .strip(): a trailing newline survives a copy-paste and yields a 401 that reads
+        # exactly like an invalid key.
+        self.api_key = (os.environ.get("ELEVENLABS_API_KEY") or "").strip()
         if not self.api_key:
             raise RuntimeError(
                 "ELEVENLABS_API_KEY is not set. Export it, or run with --provider fish."

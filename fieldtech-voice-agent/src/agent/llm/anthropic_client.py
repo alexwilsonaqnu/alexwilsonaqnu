@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from typing import Any
 
 from src.agent.llm.base import (
@@ -50,14 +51,40 @@ class AnthropicClient(LLMClient):
     def _api(self):
         if self._client is not None:
             return self._client
-        if not os.environ.get("ANTHROPIC_API_KEY"):
+
+        raw = os.environ.get("ANTHROPIC_API_KEY")
+        if not raw or not raw.strip():
             raise LLMConfigError(
                 "ANTHROPIC_API_KEY is not set. Export it (from console.anthropic.com) and "
                 "re-run. No other credential is needed for the Claude brain."
             )
+        if os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            # The SDK would send both credential headers and the API rejects that with a
+            # 401 that reads like a bad key.
+            raise LLMConfigError(
+                "Both ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN are set. The SDK sends "
+                "both and the API rejects the request. Unset one — for this POC, keep "
+                "ANTHROPIC_API_KEY."
+            )
+
+        key = raw.strip()
+        if key != raw:
+            # A trailing newline or space survives a copy-paste and produces a 401 that
+            # looks exactly like an invalid key. Pass the key explicitly, stripped.
+            print(
+                "  note: stripped surrounding whitespace from ANTHROPIC_API_KEY",
+                file=sys.stderr,
+            )
+        for bad in ('"', "'", "“", "”"):
+            if bad in key:
+                raise LLMConfigError(
+                    "ANTHROPIC_API_KEY contains a quote character. Paste the key bare in "
+                    ".env — no quotes, no `export`, nothing after the `=` but the key."
+                )
+
         import anthropic
 
-        self._client = anthropic.Anthropic()
+        self._client = anthropic.Anthropic(api_key=key)
         return self._client
 
     # -- history -------------------------------------------------------------
