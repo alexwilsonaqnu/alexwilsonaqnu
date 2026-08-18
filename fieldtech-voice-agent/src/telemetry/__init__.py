@@ -4,24 +4,79 @@
 appends a JSON line to observability/traces/spans.jsonl, and additionally exports OTLP
 when OTEL_EXPORTER_OTLP_ENDPOINT is set.
 
-Telemetry never fails the call path. A broken exporter must not drop a technician's call.
+Telemetry never fails the call path. A broken exporter must not drop a technician's call,
+and it must not talk over one either: an OTLP endpoint with nothing listening used to
+print a retry warning every second or two, straight over the conversation.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
+import socket
+import sys
 import threading
 import time
 import uuid
 from contextlib import contextmanager
 from typing import Any, Iterator
+from urllib.parse import urlparse
 
 from src.config import TRACES_PATH
+
+OTLP_PROBE_TIMEOUT = 0.75   # seconds; paid once, on the first span of the process
 
 _write_lock = threading.Lock()
 _otel_tracer = None
 _otel_initialized = False
+
+
+def _endpoint_reachable(endpoint: str) -> bool:
+    """Is anything actually listening? Constructing an OTLPSpanExporter is not a test.
+
+    The exporter builds fine against a dead endpoint and only discovers the truth later,
+    on its background thread, where the failure surfaces as an endless retry log rather
+    than an exception we could catch.
+    """
+    parsed = urlparse(endpoint if "://" in endpoint else f"http://{endpoint}")
+    port = parsed.port or (443 if parsed.scheme == "https" else 4318)
+    try:
+        with socket.create_connection((parsed.hostname or "localhost", port),
+                                      timeout=OTLP_PROBE_TIMEOUT):
+            return True
+    except OSError:
+        return False
+
+
+class _OnceFilter(logging.Filter):
+    """Let the first export complaint through, then drop the rest.
+
+    A collector that dies mid-call otherwise logs on every retry and every batch, which
+    scrolls over the technician's conversation. Silencing it outright would hide a broken
+    collector completely, so the first one still prints — after that the JSONL file is the
+    record and the console belongs to the call.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._spoken = False
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if self._spoken:
+            return False
+        self._spoken = True
+        record.msg = f"{record.msg}  [further OTLP export errors suppressed]"
+        return True
+
+
+def _quiet_after_first_complaint() -> None:
+    once = _OnceFilter()
+    for name in (
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter",
+        "opentelemetry.sdk.trace.export",
+    ):
+        logging.getLogger(name).addFilter(once)
 
 
 def _tracer():
@@ -30,8 +85,17 @@ def _tracer():
     if _otel_initialized:
         return _otel_tracer
     _otel_initialized = True
-    if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    if not endpoint:
         return None
+    if not _endpoint_reachable(endpoint):
+        print(
+            f"[telemetry] nothing listening at {endpoint} — tracing to {TRACES_PATH} only. "
+            "Unset OTEL_EXPORTER_OTLP_ENDPOINT to skip this check.",
+            file=sys.stderr,
+        )
+        return None
+    _quiet_after_first_complaint()
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter

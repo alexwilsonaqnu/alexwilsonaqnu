@@ -72,7 +72,7 @@ never imports it.
 | `LLM_PROVIDER` | `anthropic` (default) or `gemini` |
 | `FISH_AUDIO_API_KEY` | only for `--provider fish` |
 | `SERVICE_MATTERS_URL` | stage-1 search endpoint override |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | optional; adds OTLP export on top of the JSONL trace file |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | optional; adds OTLP export on top of the JSONL trace file. Probed at startup — if nothing is listening it says so once and stays file-only |
 
 ### Model choice
 
