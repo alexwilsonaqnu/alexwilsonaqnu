@@ -34,9 +34,14 @@ SALESFORCE_LOOKUP = ToolSpec(
 SERVICE_MATTERS_SEARCH = ToolSpec(
     name="service_matters_search",
     description=(
-        "Stage 1 retrieval. Given an appliance model number, return the candidate service "
-        "document ids that cover it. Call this after you have a confirmed model number and "
-        "before manual_search, then pass the returned doc_ids into manual_search."
+        "Stage 1 retrieval. Given an appliance model number, return the service documents "
+        "that cover it, best first — Tech Sheet, Technical Manual and Service Pointers, "
+        "with consumer literature filtered out. Call this after you have a confirmed model "
+        "number and before manual_search, then pass the returned doc_ids into manual_search. "
+        "The result also carries a 'notes' list: short field-guidance notes whose text is "
+        "included inline. Read those directly — they need no further search, and their "
+        "titles are a good summary of what commonly goes wrong with this model. Prefer a "
+        "note whose model_confirmed is true."
     ),
     parameters={
         "type": "object",

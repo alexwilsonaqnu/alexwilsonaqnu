@@ -186,7 +186,7 @@ the same files and because they port into `.claude/skills/` unchanged.
 | ElevenLabs / Fish Audio clients | **real** | written against verified current endpoints; unrun by me (no keys) |
 | Mic + speaker I/O | **real** | `sounddevice`; telephony replaces this file |
 | `salesforce_lookup` / `salesforce_writeback` | **stubbed** | JSON fixture in, JSONL out |
-| `service_matters_search` | **stubbed in practice** | real HTTP call, falls back to the local registry offline |
+| `service_matters_search` | **real** | live public endpoint, no auth. Ranks by document category because the API's own relevance score is ~0 for every hit on a model query; filters out consumer literature; returns inline techline notes separately from PDFs. Falls back to the local registry offline |
 | `get_figure` push | **stubbed** | logs `app_push` to `data/figure_pushes.jsonl` |
 | Corpus | **synthetic** | one 3-page generated manual, not a real Whirlpool doc |
 | Telephony (SIP/Twilio) | **not built** | seam is `src/voice/audio_io.py` |
