@@ -81,7 +81,7 @@ def ingest(
     import pdfplumber
 
     from src.ingest.chunker import chunk_blocks
-    from src.ingest.layout import extract_blocks
+    from src.ingest.layout import carries_identifiers, extract_blocks
 
     doc_id = slugify(pdf_path.stem)
     doc_title = title or pdf_path.stem.replace("_", " ").strip()
@@ -98,10 +98,22 @@ def ingest(
             # parallel columns. Keeping all three would let a French clause end up
             # inside an English safety quote.
             if language != "all":
+                kept = []
                 for block in blocks:
-                    if block.lang != language:
+                    if block.lang == language:
+                        kept.append(block)
+                    elif carries_identifiers(block.text):
+                        # A fault-code table row sets all three languages on ONE line, so
+                        # the block scores as French or Spanish and the language filter
+                        # deleted it — taking the fault-code table, the most valuable
+                        # thing on a Tech Sheet, with it. The codes themselves are
+                        # language-neutral and the English name shares the line, so a row
+                        # carrying an identifier is kept whatever it scored as.
+                        block.lang = "mixed"
+                        kept.append(block)
+                    else:
                         dropped_langs[block.lang] = dropped_langs.get(block.lang, 0) + 1
-                blocks = [b for b in blocks if b.lang == language]
+                blocks = kept
 
             figure_ids = extract_page_figures(page, doc_id, page_number)
             figure_total += len(figure_ids)

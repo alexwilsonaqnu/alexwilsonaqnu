@@ -133,6 +133,40 @@ tech>  goodbye
 
 Watch it work: `tail -f observability/traces/spans.jsonl | jq`.
 
+## Retrieval on its own (`scripts/servicematters_demo.py`)
+
+The agent with everything else stripped away — no Salesforce, no voice, no turn shaping,
+no tools the model can call. A model number goes in, ServiceMatters says which documents
+exist for it, and the answer is grounded in those documents and nothing else.
+
+```bash
+python scripts/servicematters_demo.py --model WTW5057LW0 \
+    --ask "the washer fills but will not agitate, what should I check first"
+python scripts/servicematters_demo.py --ask "what does F7E4 mean" --show-pack
+```
+
+```
+[1] ROUTE     live ServiceMatters -> 22 hits, 7 consumer docs excluded
+              10  Tech Sheet        W11428598   Tech Sheet - W11428598 - Rev D
+              20  Technical Manual  W11428632   Technical Manual - W11428632 - Rev C
+              30  Service Pointer   W11695259   ...Top Load Washers Noise and Vibration
+              note Internal Note    (inline)    ...skipping to "done" from "sensing"
+[2] GROUND    Tech Sheet W11428598 — rank 10, best of 6
+[3] INGEST    cached, reusing w11428598_tech_sheet
+[4] RETRIEVE  5 passages (4 safety), 3 inline notes
+[5] ANSWER    one model call over exactly that pack
+```
+
+**The Tech Sheet always wins, and that is the whole point of stage 1.** ServiceMatters'
+own `_score` is ~4e-05 for *every* hit on a model-number query, so relevance ranking is
+not available and document category is the only signal there is. On a diagnostic call a
+Tech Sheet carries the fault-code table and the component tests; the Owner's Manual
+carries the wash-cycle chart. Ranking by category is what keeps the second one out.
+
+Stages 1–4 are keyless, so the grounding pack is inspectable without a key —
+`--show-pack` prints exactly what the model is given. Stage 5 needs `ANTHROPIC_API_KEY`;
+without one the script prints the pack and stops rather than inventing an answer.
+
 ## Architecture
 
 ```
@@ -197,11 +231,15 @@ Measured on the real Tech Sheet, not predicted. These are the reasons the produc
 design routes ingestion through Document AI Layout Parser rather than shipping this file:
 
 - **Trilingual tables still bleed.** Column segmentation is geometric, so the parallel
-  EN/FR/ES *prose* columns separate cleanly, but a fault-code **table row** puts the three
-  languages in adjacent cells on one line. Those merge into a single block, and the block
-  gets one language tag. The "Fault History" chunk therefore carries French and Spanish
-  inside it. Table structure — which is what would fix this — is exactly what a layout
-  parser provides and geometry alone does not.
+  EN/FR/ES *prose* columns separate cleanly, but a fault-code **table row** puts all three
+  languages on one line, so it cannot be split by geometry and cannot be assigned a single
+  language. Those rows are kept — a row carrying a fault code or part number survives the
+  language filter and is tagged `mixed`, because dropping it deleted the fault-code table
+  outright — but they read as `Basket Re-engagement Failure F7E4 Défaillance de
+  réenclenchement du panier Falla de reenganche de la canasta`. Retrieval handles this
+  (the code is an exact match and the English name is on the line), and the model is
+  instructed to answer from it, but it is not clean text. Table structure is what fixes it
+  properly, and that is what a layout parser provides and geometry alone does not.
 - **Vector schematics are not figures.** `get_figure` only sees embedded raster images.
   The wiring diagram on page 2 is drawn in vectors, so the sheet extracts 0 figures even
   though its most useful page is a diagram.
@@ -255,4 +293,5 @@ src/ingest/ingest_pdf.py     drives the two above, plus figure cropping and the 
 src/voice/                   VoiceProvider ABC, elevenlabs, fish, mic/speaker I/O
 src/telemetry/               span() -> spans.jsonl (+ OTLP)
 scripts/                     preflight, run_evals, make_test_manual, smoke_test
+scripts/servicematters_demo.py   retrieval layer alone: route -> ground -> answer
 ```

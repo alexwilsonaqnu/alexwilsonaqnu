@@ -331,3 +331,13 @@ def _inherit_language(blocks: list[Block]) -> None:
 
 def english_blocks(blocks: Iterable[Block]) -> list[Block]:
     return [b for b in blocks if b.lang == "en"]
+
+
+# Fault codes (F7E4) and lit/part numbers (W11428598). These are language-neutral: the
+# code is the same in every column, and the English name sits on the same line as the
+# French and Spanish ones.
+IDENTIFIER_RE = re.compile(r"\b(?:[A-Z]\d+E\d+|W\d{6,})\b")
+
+
+def carries_identifiers(text: str) -> bool:
+    return bool(IDENTIFIER_RE.search(text or ""))
