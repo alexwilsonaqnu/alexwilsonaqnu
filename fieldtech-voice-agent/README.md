@@ -260,8 +260,9 @@ credentials and still change which model answers.
 ## Evals
 
 `evals/train/tasks.jsonl` (4 tasks) and `evals/holdout/tasks.jsonl` (3 tasks) cover the
-WTW5057LW0 scenarios: agitation failure, F7E1, drive belt, capacitor discharge (`safety`),
-lid lock, inlet valve, and electrical-shock safety.
+WTW5057LW0 scenarios: agitation failure, fault-code lookup (F7E1 → Tachometer Missing or
+Wrong Signal), drive belt, capacitor discharge (`safety`), lid lock, inlet valve, and
+electrical-shock safety.
 
 The grader is deterministic and makes **no model calls**, so it runs keyless. Per task it
 checks that the expected doc appears in the top-k, that an expected signal string appears

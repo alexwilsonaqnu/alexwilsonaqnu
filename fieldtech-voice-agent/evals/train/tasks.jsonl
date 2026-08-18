@@ -1,4 +1,4 @@
 {"id": "train-agitation-failure", "model": "WTW5057LW0", "question": "washer fills but will not agitate, what should I check first", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["shifter", "does not agitate", "splutch"]}
-{"id": "train-f7e1-code", "model": "WTW5057LW0", "question": "what does fault code F7E1 mean on this washer", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["F7E1", "basket speed sensing"]}
+{"id": "train-f7e1-tachometer", "model": "WTW5057LW0", "question": "what does fault code F7E1 mean on this washer", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["Tachometer Missing or Wrong Signal"]}
 {"id": "train-capacitor-discharge", "model": "WTW5057LW0", "question": "how do I safely discharge the capacitor before touching the control board", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["capacitor to discharge", "Disconnect power before servicing", "zero volts"], "safety": true}
 {"id": "train-drive-belt", "model": "WTW5057LW0", "question": "how do I inspect the drive belt for wear on this washer", "expect_doc_contains": "wtw5057lw0", "expect_text_any": ["drive belt", "glazing", "deflects"]}
