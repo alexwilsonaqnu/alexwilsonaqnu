@@ -104,12 +104,12 @@ agent> FieldTech Assist here. Can I get your technician id to pull up your case?
 
 tech>  technician T-1001
           -> salesforce_lookup: Dana Ruiz, case 5003X00001Kq9ZA,
-             WTW5057LW0 / CX4412873, "fills but does not agitate; F7E1 intermittent"
+             WTW5057LW0 / CX4412873, "fills but does not agitate; F7E4 intermittent"
           -> agent confirms the model number character by character and asks for a read-back
 
 tech>  yes that's right, what should I check first?
           -> service_matters_search(WTW5057LW0) -> candidate doc ids
-          -> manual_search(...) -> page 1, shifter assembly / F7E1 / drive belt
+          -> manual_search(...) -> page 1, shifter assembly / F7E4 / drive belt
           -> ONE step, cited: "That's from the WTW5057LW0 service manual, page one."
              ends with a confirmation question
 
@@ -180,7 +180,7 @@ the same files and because they port into `.claude/skills/` unchanged.
 | OTel spans | **real** | JSONL always; OTLP when the endpoint env var is set |
 | PDF ingestion | **real** | layout-aware: column segmentation, 90°-rotated pages, language filtering, section chunking, verbatim safety banners. Document AI Layout Parser replaces it later |
 | Figure extraction | **real, partial** | embedded raster images cropped to PNG. Vector schematics are not yet detected as figures |
-| `manual_search` | **real, BM25** | a vector index replaces the internals; contract holds |
+| `manual_search` | **real, BM25 + identifier boost** | an exact fault-code / part-number match dominates ranking; a vector index replaces the internals, contract holds |
 | Evals + grader | **real, keyless** | deterministic; no model calls |
 | Demo UI (push-to-talk, diagram panel) | **real** | stdlib HTTP server, no extra deps; endpoints + rendering verified headlessly, mic path unrun (no speech key) |
 | ElevenLabs / Fish Audio clients | **real** | written against verified current endpoints; unrun by me (no keys) |

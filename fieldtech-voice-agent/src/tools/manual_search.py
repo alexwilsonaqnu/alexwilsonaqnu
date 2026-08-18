@@ -16,6 +16,21 @@ from src.config import CHUNKS_PATH
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
+# A token mixing letters and digits is an identifier a technician read off a display or a
+# parts label: a fault code (F7E4), a part number (W11035747), a model (WTW5057LW0).
+_IDENTIFIER_RE = re.compile(r"^(?=.*[a-z])(?=.*\d)[a-z0-9]{4,}$")
+
+# Multiples of the top BM25 score, awarded per distinct query identifier the chunk
+# contains. Plain BM25 ranks a fault-code question by its *common* words: "what does fault
+# code F7E1 mean on this washer" scored a chunk about fault-code *history* above the chunk
+# that defines F7E1, because "fault" and "code" appear more often there and one rare token
+# cannot outweigh them. A technician reading a code off the console is the single most
+# common query this system takes, and the chunk naming that code is essentially always the
+# answer, so an exact identifier match has to dominate the ranking rather than nudge it.
+# Scaling to the top score keeps this corpus-independent; BM25 still orders the chunks that
+# all match the identifier.
+IDENTIFIER_BOOST = 1.0
+
 _lock = threading.Lock()
 _cache: dict[str, Any] = {"mtime": None, "chunks": [], "bm25": None}
 
@@ -52,6 +67,18 @@ def _index() -> tuple[list[dict[str, Any]], Any]:
         return chunks, bm25
 
 
+def _boosted_scores(scores, query_tokens: list[str], chunks: list[dict[str, Any]]) -> list[float]:
+    """Add an exact-identifier bonus on top of BM25. See IDENTIFIER_BOOST."""
+    wanted = {t for t in query_tokens if _IDENTIFIER_RE.match(t)}
+    if not wanted:
+        return [float(s) for s in scores]
+    unit = IDENTIFIER_BOOST * max(max((float(s) for s in scores), default=0.0), 1.0)
+    return [
+        float(score) + unit * len(wanted & set(tokenize(chunk.get("text", ""))))
+        for score, chunk in zip(scores, chunks)
+    ]
+
+
 def manual_search(query: str, doc_ids: list[str] | None = None, k: int = 5) -> dict[str, Any]:
     """Search ingested manual pages, optionally restricted to stage-1 candidate docs."""
     chunks, bm25 = _index()
@@ -62,7 +89,8 @@ def manual_search(query: str, doc_ids: list[str] | None = None, k: int = 5) -> d
             "note": "No manual has been ingested yet. Run src.ingest.ingest_pdf first.",
         }
 
-    scores = bm25.get_scores(tokenize(query))
+    query_tokens = tokenize(query)
+    scores = _boosted_scores(bm25.get_scores(query_tokens), query_tokens, chunks)
     wanted = {d for d in (doc_ids or []) if d}
     scored = [
         (float(score), chunk)

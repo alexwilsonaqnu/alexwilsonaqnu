@@ -2,6 +2,13 @@
 
 Test fixture only — reportlab is not imported anywhere at runtime.
 
+The prose is synthetic, but **every fault code and its name is taken verbatim from the
+real Tech Sheet W11428598 Rev D** (`data/W11428598_tech_sheet.pdf`). An earlier draft
+invented both: it defined F7E1 as a "basket speed sensing fault" when the real F7E1 is
+Tachometer Missing or Wrong Signal, and used F5E2 for the lid lock, which is not a code
+this washer has at all. A Whirlpool service engineer watching the demo would catch either
+in a second, so codes are copied, never composed. Check new ones against the Tech Sheet.
+
     python scripts/make_test_manual.py [out.pdf]
 """
 
@@ -26,9 +33,16 @@ PAGE_1 = [
     "splutch cam; a failed shifter leaves the drive in spin position and no",
     "agitation occurs.",
     "",
-    "Fault code F7E1 indicates a basket speed sensing fault. F7E1 is reported when",
-    "the control detects motor rotation without corresponding basket rotation, and",
-    "is commonly caused by a worn drive belt or a failed shifter position switch.",
+    "Fault code F7E4, Basket Re-engagement Failure, is reported when the control",
+    "cannot confirm the basket has re-engaged after a shift. It is commonly caused",
+    "by a worn drive belt or a failed shifter position switch.",
+    "",
+    "MOTOR AND BASKET FAULT CODES",
+    "F7E1  Tachometer Missing or Wrong Signal",
+    "F7E3  Basket Engaged During Wash",
+    "F7E4  Basket Re-engagement Failure",
+    "F7E6  Motor Circuit Open",
+    "F7E7  Motor Unable to Reach Target RPM",
     "",
     "Step 1. Enter Service Diagnostic Mode and read the stored fault codes.",
     "Step 2. Inspect the drive belt for glazing, cracking or slack. A belt that",
@@ -56,9 +70,9 @@ PAGE_3 = [
     "SECTION 5 — LID LOCK AND WATER INLET VALVE",
     "",
     "The lid lock assembly must report locked before the control will allow",
-    "agitation or spin. A lid lock that fails to latch produces fault code F5E2.",
-    "Test the lid lock striker alignment and measure continuity across the lid",
-    "lock switch terminals. Lid lock part number W11307244.",
+    "agitation or spin. A lid lock that fails to latch produces fault code F5E3,",
+    "Lid Will Not Lock Or Unlock. Test the lid lock striker alignment and measure",
+    "continuity across the lid lock switch terminals. Lid lock part W11307244.",
     "",
     "The water inlet valve controls hot and cold fill. If the washer overfills or",
     "will not fill, test each inlet valve solenoid coil for resistance between",

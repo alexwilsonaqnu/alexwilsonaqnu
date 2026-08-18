@@ -11,7 +11,7 @@ generated 3-page manual. Nothing here is a real Whirlpool document.
 | **Model number** | `WTW5057LW0` |
 | Serial | `CX4412873` |
 | Case | `5003X00001Kq9ZA` |
-| Reported issue | fills but does not agitate; F7E1 intermittent |
+| Reported issue | fills but does not agitate; F7E4 intermittent |
 | **Unknown technician** | `T-1042` — Priya Nandakumar, no open case |
 
 The UI reads these from `fixtures/salesforce_cases.json` and shows them on a demo card, so
@@ -21,9 +21,9 @@ the card can never drift from what `salesforce_lookup` actually returns.
 
 | Page | Content | Safety-flagged |
 |---|---|---|
-| 1 | Fills-but-won't-agitate diagnostics · shifter assembly · fault code `F7E1` · drive belt · part `W11035747` | no |
+| 1 | Fills-but-won't-agitate diagnostics · shifter assembly · fault code `F7E4` · drive belt · part `W11035747` | no |
 | 2 | `WARNING: Electrical Shock Hazard. Disconnect power before servicing.` · capacitor discharge · wiring schematic (the pushable figure) | **yes** |
-| 3 | Lid lock · fault code `F5E2` · part `W11307244` · water inlet valve · 800–1300 ohms | no |
+| 3 | Lid lock · fault code `F5E3` · part `W11307244` · water inlet valve · 800–1300 ohms | no |
 
 The only extractable figure is `wtw5057lw0_service_manual_p2_fig1` — the page-2 wiring
 schematic. That's what appears in the app panel.
