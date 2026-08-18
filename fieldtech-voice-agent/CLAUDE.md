@@ -99,7 +99,7 @@ exporter must not drop a technician's call.
 |---|---|---|
 | `VoiceProvider` (`src/voice/base.py`) | mic + speaker | SIP / Twilio; only the audio I/O file changes |
 | `manual_search` internals | BM25 over page chunks | Vertex vector index / hybrid; tool contract unchanged |
-| `src/ingest/ingest_pdf.py` | pdfplumber page text | Document AI layout parser |
+| `src/ingest/layout.py` + `chunker.py` | local layout analysis over pdfplumber chars | Document AI **Layout Parser** — reading-order and table structure, *not* OCR: these documents are text-bearing |
 | `salesforce_*` | JSON fixtures | Salesforce REST |
 | `get_figure` push | `data/figure_pushes.jsonl` | real push to the technician's app |
 | brain | `LLMClient` in `src/agent/llm/` | already demonstrated, not asserted: Claude and Gemini both run the same orchestrator, skills, agent prompts, hooks and tool contracts. Claude is also served in Model Garden, so an enterprise tenant can keep its cloud auth and still swap the model |

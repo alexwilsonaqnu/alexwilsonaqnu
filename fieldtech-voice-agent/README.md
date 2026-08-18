@@ -178,8 +178,8 @@ the same files and because they port into `.claude/skills/` unchanged.
 | Retrieval evaluator subagent | **real** | separate model call, JSON-schema-constrained verdict |
 | Skills loaded from markdown | **real** | frontmatter parsed, appended to system prompt |
 | OTel spans | **real** | JSONL always; OTLP when the endpoint env var is set |
-| PDF ingestion | **real, thin** | pdfplumber page text; Document AI replaces it later |
-| Figure extraction | **real** | embedded images cropped to PNG |
+| PDF ingestion | **real** | layout-aware: column segmentation, 90°-rotated pages, language filtering, section chunking, verbatim safety banners. Document AI Layout Parser replaces it later |
+| Figure extraction | **real, partial** | embedded raster images cropped to PNG. Vector schematics are not yet detected as figures |
 | `manual_search` | **real, BM25** | a vector index replaces the internals; contract holds |
 | Evals + grader | **real, keyless** | deterministic; no model calls |
 | Demo UI (push-to-talk, diagram panel) | **real** | stdlib HTTP server, no extra deps; endpoints + rendering verified headlessly, mic path unrun (no speech key) |
@@ -188,8 +188,28 @@ the same files and because they port into `.claude/skills/` unchanged.
 | `salesforce_lookup` / `salesforce_writeback` | **stubbed** | JSON fixture in, JSONL out |
 | `service_matters_search` | **real** | live public endpoint, no auth. Ranks by document category because the API's own relevance score is ~0 for every hit on a model query; filters out consumer literature; returns inline techline notes separately from PDFs. Falls back to the local registry offline |
 | `get_figure` push | **stubbed** | logs `app_push` to `data/figure_pushes.jsonl` |
-| Corpus | **synthetic** | one 3-page generated manual, not a real Whirlpool doc |
+| Corpus | **mixed** | one synthetic 3-page manual plus the real Whirlpool Tech Sheet W11428598 Rev D (trilingual, 11x17, rotated schematic page) |
 | Telephony (SIP/Twilio) | **not built** | seam is `src/voice/audio_io.py` |
+
+### What document processing still gets wrong
+
+Measured on the real Tech Sheet, not predicted. These are the reasons the production
+design routes ingestion through Document AI Layout Parser rather than shipping this file:
+
+- **Trilingual tables still bleed.** Column segmentation is geometric, so the parallel
+  EN/FR/ES *prose* columns separate cleanly, but a fault-code **table row** puts the three
+  languages in adjacent cells on one line. Those merge into a single block, and the block
+  gets one language tag. The "Fault History" chunk therefore carries French and Spanish
+  inside it. Table structure — which is what would fix this — is exactly what a layout
+  parser provides and geometry alone does not.
+- **Vector schematics are not figures.** `get_figure` only sees embedded raster images.
+  The wiring diagram on page 2 is drawn in vectors, so the sheet extracts 0 figures even
+  though its most useful page is a diagram.
+- **Language detection is lexical**, a stop-word and diacritic score. It needs ~4 tokens,
+  so short blocks inherit from their nearest confident neighbour rather than being read.
+
+None of these can put wrong text inside a safety quote — a banner is segmented as its own
+block and preserved verbatim — but all three cost recall.
 
 ### Brain-swap path
 
@@ -229,7 +249,9 @@ src/agent/llm/               the brain seam: base, anthropic_client, gemini_clie
 src/agent/                   orchestrator, prompts, skills loader, tool schemas,
                              hooks, dispatcher, retrieval evaluator
 src/tools/                   the five tools
-src/ingest/ingest_pdf.py     pdfplumber -> page chunks + cropped figures
+src/ingest/layout.py         words -> columns -> reading-ordered, language-tagged blocks
+src/ingest/chunker.py        blocks -> section chunks; safety banners verbatim + governing
+src/ingest/ingest_pdf.py     drives the two above, plus figure cropping and the registry
 src/voice/                   VoiceProvider ABC, elevenlabs, fish, mic/speaker I/O
 src/telemetry/               span() -> spans.jsonl (+ OTLP)
 scripts/                     preflight, run_evals, make_test_manual, smoke_test

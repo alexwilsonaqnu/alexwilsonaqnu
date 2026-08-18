@@ -1,11 +1,20 @@
-"""Ingest a service manual PDF into page chunks + extracted figures.
+"""Ingest a service manual PDF into section chunks + extracted figures.
 
-    python -m src.ingest.ingest_pdf <pdf> --models WTW5057LW0
+    python -m src.ingest.ingest_pdf <pdf> --models WTW5057LW0 [--language en]
 
-Thin slice on purpose: one chunk per page, regex safety flagging, embedded images cropped
-to PNG. Seam: production replaces pdfplumber text extraction with Document AI layout
-parsing (tables, multi-column, OCR) — the chunk record shape is what everything downstream
-depends on, so keep it stable.
+Three stages, each in its own module:
+  1. `layout.extract_blocks`  — words -> lines -> column runs -> reading-ordered,
+     language-tagged blocks. Real service documents set English, French and Spanish in
+     parallel columns, so a naive extractor emits language-salad.
+  2. language filter (here) — keep one language; `--language all` keeps everything tagged.
+  3. `chunker.chunk_blocks`   — blocks -> section-sized chunks, with safety banners
+     preserved verbatim and propagated to the procedures they govern.
+
+Embedded images are cropped to PNG alongside.
+
+Seam: stages 1-2 are a local stand-in for Document AI Layout Parser, which does this
+properly (reading-order detection and tables, not OCR — these documents are text-bearing).
+The chunk record shape is what everything downstream depends on, so keep it stable.
 """
 
 from __future__ import annotations
@@ -63,8 +72,16 @@ def extract_page_figures(page, doc_id: str, page_number: int) -> list[str]:
     return figure_ids
 
 
-def ingest(pdf_path: Path, models: list[str], title: str | None = None) -> dict[str, Any]:
+def ingest(
+    pdf_path: Path,
+    models: list[str],
+    title: str | None = None,
+    language: str = "en",
+) -> dict[str, Any]:
     import pdfplumber
+
+    from src.ingest.chunker import chunk_blocks
+    from src.ingest.layout import extract_blocks
 
     doc_id = slugify(pdf_path.stem)
     doc_title = title or pdf_path.stem.replace("_", " ").strip()
@@ -72,24 +89,30 @@ def ingest(pdf_path: Path, models: list[str], title: str | None = None) -> dict[
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     chunks: list[dict[str, Any]] = []
     figure_total = 0
+    dropped_langs: dict[str, int] = {}
 
     with pdfplumber.open(str(pdf_path)) as pdf:
         for page_number, page in enumerate(pdf.pages, start=1):
-            text = (page.extract_text() or "").strip()
+            blocks = extract_blocks(page, page_number)
+            # Service documents are frequently trilingual with the languages set in
+            # parallel columns. Keeping all three would let a French clause end up
+            # inside an English safety quote.
+            if language != "all":
+                for block in blocks:
+                    if block.lang != language:
+                        dropped_langs[block.lang] = dropped_langs.get(block.lang, 0) + 1
+                blocks = [b for b in blocks if b.lang == language]
+
             figure_ids = extract_page_figures(page, doc_id, page_number)
             figure_total += len(figure_ids)
-            chunks.append(
-                {
-                    "chunk_id": f"{doc_id}_p{page_number}",
-                    "doc_id": doc_id,
-                    "doc_title": doc_title,
-                    "models": models,
-                    "page": page_number,
-                    "text": text,
-                    "figures": figure_ids,
-                    "safety": bool(SAFETY_PATTERN.search(text)),
-                }
-            )
+
+            page_chunks = chunk_blocks(blocks)
+            if figure_ids and page_chunks:
+                page_chunks[0].figures = figure_ids
+            for chunk in page_chunks:
+                chunks.append(
+                    chunk.to_record(doc_id, doc_title, models, len(chunks) + 1)
+                )
         page_count = len(pdf.pages)
 
     _rewrite_chunks(doc_id, chunks)
@@ -109,8 +132,19 @@ def ingest(pdf_path: Path, models: list[str], title: str | None = None) -> dict[
         "pages": page_count,
         "chunks": len(chunks),
         "figures": figure_total,
-        "safety_pages": sum(1 for c in chunks if c["safety"]),
+        "language_kept": language,
+        "blocks_dropped_by_language": dropped_langs,
+        "safety_chunks": sum(1 for c in chunks if c["safety"]),
+        "verbatim_warnings": sum(1 for c in chunks if c.get("warning_text")),
+        "median_chunk_chars": _median([len(c["text"]) for c in chunks]),
     }
+
+
+def _median(values: list[int]) -> int:
+    if not values:
+        return 0
+    ordered = sorted(values)
+    return ordered[len(ordered) // 2]
 
 
 def _rewrite_chunks(doc_id: str, new_chunks: list[dict[str, Any]]) -> None:
@@ -151,13 +185,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("pdf", type=Path)
     parser.add_argument("--models", nargs="+", required=True, help="model numbers this doc covers")
     parser.add_argument("--title", default=None)
+    parser.add_argument(
+        "--language", default="en",
+        help="keep only blocks in this language ('all' to keep every language, tagged)",
+    )
     args = parser.parse_args(argv)
 
     if not args.pdf.exists():
         print(f"No such PDF: {args.pdf}", file=sys.stderr)
         return 2
 
-    summary = ingest(args.pdf, [m.upper() for m in args.models], args.title)
+    summary = ingest(args.pdf, [m.upper() for m in args.models], args.title, args.language)
     print(json.dumps(summary, indent=2))
     if summary["chunks"] == 0:
         print("No chunks produced — is the PDF text-bearing?", file=sys.stderr)
