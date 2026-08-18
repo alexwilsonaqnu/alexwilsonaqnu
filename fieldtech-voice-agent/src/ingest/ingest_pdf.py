@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 import threading
@@ -160,6 +161,44 @@ def ingest(
     }
 
 
+def _atomic_write(path: Path, text: str) -> None:
+    """Write via a temp file and rename, so an interrupted write cannot destroy the corpus.
+
+    This is a full-file rewrite on every ingest. A batch warm killed partway through
+    truncated data/chunks.jsonl mid-write and lost the chunks of ~180 already-indexed
+    documents, while the registry — written afterwards, and therefore still claiming
+    them — made the loss invisible to the resume check. os.replace is atomic on POSIX, so
+    the worst case is now losing the document currently being written.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def indexed_doc_ids() -> set[str]:
+    """Documents that are actually searchable — i.e. that have chunks.
+
+    Deliberately not the registry. "We have this document" has to mean "a search can
+    return it", and those two answers came apart the first time a bulk ingest was
+    interrupted: the registry listed 337 documents while 158 had any chunks at all, and a
+    registry-based resume check would have skipped every one of the missing ones forever.
+    """
+    with _corpus_lock:
+        if not CHUNKS_PATH.exists():
+            return set()
+        found: set[str] = set()
+        with CHUNKS_PATH.open(encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    found.add(json.loads(line)["doc_id"])
+                except (json.JSONDecodeError, KeyError):
+                    continue
+        return found
+
+
 def _existing_models(doc_id: str) -> list[str]:
     with _corpus_lock:
         if not DOC_REGISTRY_PATH.exists():
@@ -206,9 +245,7 @@ def _rewrite_chunks_locked(doc_id: str, new_chunks: list[dict[str, Any]]) -> Non
                 if record.get("doc_id") != doc_id:
                     kept.append(record)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        for record in kept + new_chunks:
-            fh.write(json.dumps(record) + "\n")
+    _atomic_write(path, "".join(json.dumps(r) + "\n" for r in kept + new_chunks))
 
 
 def _register_doc(entry: dict[str, Any]) -> None:
@@ -233,9 +270,7 @@ def _register_doc_locked(entry: dict[str, Any]) -> None:
         entry["models"] = sorted({*existing.get("models", []), *entry.get("models", [])})
     docs.append(entry)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump({"docs": docs}, fh, indent=2)
-        fh.write("\n")
+    _atomic_write(path, json.dumps({"docs": docs}, indent=2) + "\n")
 
 
 def main(argv: list[str] | None = None) -> int:

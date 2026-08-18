@@ -105,29 +105,38 @@ def warm_document(record: dict, max_bytes: int | None) -> tuple[str, str, int]:
     if local_doc_id(doc_id):
         return doc_id, "cached", 0
 
-    url = record.get("url")
-    if not url:
-        return doc_id, "no_url", 0
-
-    try:
-        import httpx
-
-        response = httpx.get(url, timeout=180, follow_redirects=True)
-        response.raise_for_status()
-        body = response.content
-    except Exception as exc:
-        return doc_id, f"download_failed:{type(exc).__name__}", 0
-
-    if max_bytes and len(body) > max_bytes:
-        return doc_id, f"skipped_size:{len(body)//1024//1024}MB", 0
-
     import re
 
     slug = re.sub(r"[^a-z0-9]+", "_", (record.get("category") or "doc").lower()).strip("_")
     path = DATA_DIR / f"{doc_id.lower()}_{slug}.pdf"
+
+    # Resume without re-downloading. A run interrupted after the download but before the
+    # index leaves the PDF on disk; re-fetching it would have cost 260 MB of the 948 for
+    # nothing. The registry is not evidence the document is searchable, so the skip test
+    # above is chunk-based — this one is purely "do we still need the bytes".
+    if not path.exists() or path.stat().st_size == 0:
+        url = record.get("url")
+        if not url:
+            return doc_id, "no_url", 0
+        try:
+            import httpx
+
+            response = httpx.get(url, timeout=180, follow_redirects=True)
+            response.raise_for_status()
+            body = response.content
+        except Exception as exc:
+            return doc_id, f"download_failed:{type(exc).__name__}", 0
+        if max_bytes and len(body) > max_bytes:
+            return doc_id, f"skipped_size:{len(body)//1024//1024}MB", 0
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(body)
+        except Exception as exc:
+            return doc_id, f"download_failed:{type(exc).__name__}", 0
+    elif max_bytes and path.stat().st_size > max_bytes:
+        return doc_id, f"skipped_size:{path.stat().st_size//1024//1024}MB", 0
+
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(body)
         summary = ingest(path, models, title=record.get("doc_title"))
     except Exception as exc:
         return doc_id, f"ingest_failed:{type(exc).__name__}", 0

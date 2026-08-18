@@ -112,6 +112,34 @@ def main() -> int:
     )
     check("weak-retrieval condition detects results spanning docs", spans, str(reason_spans))
 
+    # --- "we have this document" must mean "a search can return it" ----------
+    # A bulk warm interrupted mid-write once left the registry claiming 337 documents
+    # while only 158 had chunks. Because the resume check trusted the registry, every one
+    # of the missing 179 read as cached and would never have been re-indexed — a silent,
+    # permanent hole in the corpus.
+    from src.ingest.ingest_pdf import indexed_doc_ids  # noqa: E402
+    from src.tools import doc_cache  # noqa: E402
+
+    searchable = indexed_doc_ids()
+    check(
+        "indexed_doc_ids reports exactly the documents that have chunks",
+        searchable == {c["doc_id"] for c in chunks},
+        f"{len(searchable)} indexed vs {len({c['doc_id'] for c in chunks})} in the chunk file",
+    )
+
+    phantom_id = "phantom_doc_registered_but_never_indexed"
+    original = doc_cache._registry_ids
+    doc_cache._registry_ids = lambda: [*original(), phantom_id]
+    try:
+        phantom = doc_cache.local_doc_id(phantom_id)
+    finally:
+        doc_cache._registry_ids = original
+    check(
+        "a registry entry with no chunks is not reported as cached",
+        phantom is None,
+        f"resolved to {phantom!r}, so it would never be re-indexed",
+    )
+
     print()
     if failures:
         print(f"{len(failures)} smoke test(s) failed: {', '.join(failures)}")

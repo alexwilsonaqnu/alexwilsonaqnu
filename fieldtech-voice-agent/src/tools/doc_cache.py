@@ -71,8 +71,14 @@ def local_doc_id(doc_id: str) -> str | None:
     needle = (doc_id or "").strip().lower()
     if not needle:
         return None
+    # Intersected with what is actually searchable: a registry entry whose chunks were
+    # lost to an interrupted bulk write would otherwise mark the document "cached"
+    # forever and it would never be re-indexed.
+    from src.ingest.ingest_pdf import indexed_doc_ids
+
+    searchable = indexed_doc_ids()
     for local in _registry_ids():
-        if needle == local.lower() or needle in local.lower():
+        if local in searchable and (needle == local.lower() or needle in local.lower()):
             return local
     return None
 
