@@ -42,7 +42,13 @@ def load_tasks(path: Path) -> list[dict]:
 
 def grade(task: dict) -> tuple[bool, list[str]]:
     k = int(task.get("k", DEFAULT_K))
-    hits = manual_search(task["question"], doc_ids=None, k=k).get("results", [])
+    # The task declares the model the technician is on; pass it. A warmed corpus carries
+    # documents for the whole serviced fleet, and the agent never searches it unscoped —
+    # stage 1 always narrows to the confirmed model first. Grading unscoped tested a
+    # scenario the product does not have.
+    hits = manual_search(
+        task["question"], doc_ids=None, k=k, models=[task["model"]]
+    ).get("results", [])
     failures: list[str] = []
 
     if not hits:

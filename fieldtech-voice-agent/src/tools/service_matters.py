@@ -185,6 +185,12 @@ def service_matters_search(
         if fallback_reason is None:
             fallback_reason = "ServiceMatters returned no usable results"
 
+    # Stage 2 resolves a doc_id to a URL through this catalog, which is what lets it
+    # fetch a document nobody ingested ahead of time.
+    from src.tools.doc_cache import remember
+
+    remember(results)
+
     return {
         "model_number": model_number,
         "source": source,

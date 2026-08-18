@@ -23,6 +23,7 @@ import argparse
 import json
 import re
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +38,10 @@ SAFETY_PATTERN = re.compile(
 )
 
 MIN_FIGURE_SIDE = 24.0  # points; ignore rules, bullets and other decorative slivers
+
+# data/chunks.jsonl and the registry are read-modify-write over one file; background
+# acquisition means two ingests can overlap.
+_corpus_lock = threading.RLock()
 
 
 def slugify(value: str) -> str:
@@ -85,6 +90,9 @@ def ingest(
 
     doc_id = slugify(pdf_path.stem)
     doc_title = title or pdf_path.stem.replace("_", " ").strip()
+    # Chunks carry the model list too, so the union has to be settled before they are
+    # built — not just when the registry entry is written.
+    models = sorted({*_existing_models(doc_id), *models})
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     chunks: list[dict[str, Any]] = []
@@ -152,6 +160,21 @@ def ingest(
     }
 
 
+def _existing_models(doc_id: str) -> list[str]:
+    with _corpus_lock:
+        if not DOC_REGISTRY_PATH.exists():
+            return []
+        try:
+            with DOC_REGISTRY_PATH.open(encoding="utf-8") as fh:
+                docs = json.load(fh).get("docs", [])
+        except (OSError, json.JSONDecodeError):
+            return []
+    for doc in docs:
+        if doc.get("doc_id") == doc_id:
+            return list(doc.get("models", []))
+    return []
+
+
 def _median(values: list[int]) -> int:
     if not values:
         return 0
@@ -160,7 +183,17 @@ def _median(values: list[int]) -> int:
 
 
 def _rewrite_chunks(doc_id: str, new_chunks: list[dict[str, Any]]) -> None:
-    """Replace this doc's chunks in place; leave other docs alone (re-ingest is idempotent)."""
+    """Replace this doc's chunks in place; leave other docs alone (re-ingest is idempotent).
+
+    Serialized: this is read-modify-write over one shared file, and on-the-fly acquisition
+    can have a background ingest finishing while a foreground one runs. Without the lock
+    the later writer drops the earlier one's document entirely.
+    """
+    with _corpus_lock:
+        _rewrite_chunks_locked(doc_id, new_chunks)
+
+
+def _rewrite_chunks_locked(doc_id: str, new_chunks: list[dict[str, Any]]) -> None:
     path = guard_write_path(CHUNKS_PATH, actor="ingest_pdf")
     kept: list[dict[str, Any]] = []
     if path.exists():
@@ -179,12 +212,25 @@ def _rewrite_chunks(doc_id: str, new_chunks: list[dict[str, Any]]) -> None:
 
 
 def _register_doc(entry: dict[str, Any]) -> None:
+    with _corpus_lock:
+        _register_doc_locked(entry)
+
+
+def _register_doc_locked(entry: dict[str, Any]) -> None:
     path = guard_write_path(DOC_REGISTRY_PATH, actor="ingest_pdf")
     registry: dict[str, Any] = {"docs": []}
     if path.exists():
         with path.open(encoding="utf-8") as fh:
             registry = json.load(fh)
-    docs = [d for d in registry.get("docs", []) if d.get("doc_id") != entry["doc_id"]]
+    docs = []
+    for existing in registry.get("docs", []):
+        if existing.get("doc_id") != entry["doc_id"]:
+            docs.append(existing)
+            continue
+        # One document usually covers several models — 121 of the 341 documents across a
+        # 59-model fleet are shared. Replacing the list instead of merging it makes a
+        # re-ingest for the second model silently un-find the document for the first.
+        entry["models"] = sorted({*existing.get("models", []), *entry.get("models", [])})
     docs.append(entry)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as fh:

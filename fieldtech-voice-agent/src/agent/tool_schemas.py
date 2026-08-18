@@ -63,7 +63,12 @@ MANUAL_SEARCH = ToolSpec(
         "from service_matters_search when you have them. Call this whenever the technician "
         "asks what to check, what a fault code means, how to test or replace a part, or "
         "anything about a hazard — every instruction you give must come from a passage "
-        "this tool returned."
+        "this tool returned. "
+        "You are not limited to documents already indexed: pass any doc_id "
+        "service_matters_search returned and it is fetched and indexed on demand. The "
+        "'documents' field in the result reports what that took — status 'fetched' means it "
+        "was pulled just now, and status 'indexing' means a manual too large to prepare "
+        "mid-call is being built in the background and will answer a later search."
     ),
     parameters={
         "type": "object",

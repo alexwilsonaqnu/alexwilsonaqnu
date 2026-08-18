@@ -26,6 +26,13 @@ def dispatch(tool_name: str, args: dict[str, Any], *, model_number: str | None =
             attrs["outcome"] = "unknown_tool"
             return {"error": f"Unknown tool '{tool_name}'."}
 
+        # A document fetched on the fly has to be filed against the model it covers.
+        # Injected here rather than declared in the tool schema: the orchestrator already
+        # knows the confirmed model, so making the agent repeat it back on every search is
+        # a rail that buys nothing and one more thing for it to get wrong.
+        if tool_name == "manual_search" and model_number and not args.get("models"):
+            args["models"] = [model_number]
+
         try:
             result = tool(**args)
         except ProtectedPathError:

@@ -79,28 +79,82 @@ def _boosted_scores(scores, query_tokens: list[str], chunks: list[dict[str, Any]
     ]
 
 
-def manual_search(query: str, doc_ids: list[str] | None = None, k: int = 5) -> dict[str, Any]:
+def _acquire(doc_ids: list[str] | None, models: list[str]) -> tuple[set[str], list[dict[str, Any]]]:
+    """Resolve stage-1 doc_ids into searchable local documents, fetching any we lack.
+
+    This is what makes stage-1 routing real rather than decorative: the agent can name any
+    document ServiceMatters returned, including one nobody ingested beforehand, and it
+    becomes searchable here.
+    """
+    from src.tools.doc_cache import ensure_local
+
+    resolved: set[str] = set()
+    acquisitions: list[dict[str, Any]] = []
+    for doc_id in doc_ids or []:
+        if not doc_id:
+            continue
+        local, status = ensure_local(doc_id, models)
+        if local:
+            resolved.add(local)
+        elif status == "unknown":
+            # Not a ServiceMatters id we have seen — treat it as a local id directly.
+            resolved.add(doc_id)
+        if status != "cached":
+            acquisitions.append({"doc_id": doc_id, "status": status, "local_doc_id": local})
+    return resolved, acquisitions
+
+
+def _covers(chunk: dict[str, Any], models: list[str]) -> bool:
+    """Does this chunk's document cover one of these models?
+
+    Tolerant at the ends because a model number and a document's coverage list disagree
+    about the trailing revision digit constantly — WTW5057LW0 on the case, WTW5057LW in
+    the coverage list, the same washer.
+    """
+    covered = [str(m).upper() for m in chunk.get("models", []) if m]
+    for wanted in (str(m).upper() for m in models if m):
+        for have in covered:
+            if wanted == have or wanted.startswith(have) or have.startswith(wanted):
+                return True
+    return False
+
+
+def manual_search(
+    query: str,
+    doc_ids: list[str] | None = None,
+    k: int = 5,
+    models: list[str] | None = None,
+) -> dict[str, Any]:
     """Search ingested manual pages, optionally restricted to stage-1 candidate docs."""
+    models = models or []
+    wanted, acquisitions = _acquire(doc_ids, models)
     chunks, bm25 = _index()
     if not chunks or bm25 is None:
         return {
             "query": query,
             "results": [],
+            "documents": acquisitions,
             "note": "No manual has been ingested yet. Run src.ingest.ingest_pdf first.",
         }
 
     query_tokens = tokenize(query)
     scores = _boosted_scores(bm25.get_scores(query_tokens), query_tokens, chunks)
-    wanted = {d for d in (doc_ids or []) if d}
-    scored = [
-        (float(score), chunk)
-        for score, chunk in zip(scores, chunks)
-        if not wanted or chunk["doc_id"] in wanted
-    ]
-    if not scored and wanted:
-        # Stage 1 pointed at docs we have not ingested — fall back to the whole corpus
-        # rather than returning nothing to a technician standing at the machine.
-        scored = [(float(s), c) for s, c in zip(scores, chunks)]
+    everything = [(float(s), c) for s, c in zip(scores, chunks)]
+    scoped_by = None
+    if wanted:
+        scored = [pair for pair in everything if pair[1]["doc_id"] in wanted]
+    elif models:
+        # A warmed corpus holds documents for every model the fleet services — 341 of them
+        # across 59 models — so an unscoped search answers a WTW5057LW0 question out of
+        # some other washer's tech sheet. Whenever the model is known it is the scope.
+        scored = [pair for pair in everything if _covers(pair[1], models)]
+        scoped_by = models if scored else None
+    else:
+        scored = everything
+    if not scored:
+        # Nothing matched the scope — better a wider answer than none to a technician
+        # standing at the machine, and the citation still names the document.
+        scored = everything
 
     scored.sort(key=lambda pair: pair[0], reverse=True)
     top = scored[: max(1, int(k))]
@@ -120,5 +174,10 @@ def manual_search(query: str, doc_ids: list[str] | None = None, k: int = 5) -> d
     return {
         "query": query,
         "restricted_to_doc_ids": sorted(wanted) or None,
+        "scoped_to_models": scoped_by,
+        # What stage 2 had to do to make those documents readable. `indexing` means a
+        # document too large to index inside a turn is being built in the background and
+        # will answer on a later search this session.
+        "documents": acquisitions,
         "results": results,
     }
