@@ -719,8 +719,10 @@ function renderDeath() {
   const listTop = 122, colW = W / cols;
   for (let i = 0; i < n; i++) {
     const b = G.blessings[i], col = Math.floor(i / rows), r = i % rows, x = colW * col + colW / 2, y = listTop + r * rowH;
-    ASSETS.icon(ctx, b.id, x - (cols === 1 ? 78 : cols === 2 ? 66 : 52), y, size * 0.8, b.color);
-    text(b.name, x + 6, y, size, C.text, 'center', 600);
+    ctx.font = `600 ${size}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+    const tw = ctx.measureText(b.name).width, left = x - (tw + size * 1.4) / 2;
+    ASSETS.icon(ctx, b.id, left + size * 0.4, y, size * 0.8, b.color);
+    text(b.name, left + size * 1.4, y, size, C.text, 'left', 600);
   }
   const listBottom = listTop + rows * rowH + 14;
   const y = Math.max(listBottom + 30, 470);
