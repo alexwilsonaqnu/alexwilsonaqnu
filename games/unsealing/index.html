@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b0907">
+<meta name="description" content="The Unsealing. Five things are hidden in the house. Something sleeps beneath it. Every one you take wakes it further.">
+<title>The Unsealing</title>
+<style>
+  :root { --bg:#0b0907; --paper:#e6dcc8; --ink:#1a1410; --text:#d9cfbb; --muted:#8d8170; --accent:#b9863a; --danger:#8e3a2e; --panel:#151109; --line:#3a2f22; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+    font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif; }
+  body { transition: filter 2.5s ease; }
+  #app { position:absolute; inset:0; display:flex; flex-direction:column; max-width:520px; margin:0 auto; }
+  #top { flex:0 0 auto; padding:6px 10px 2px; }
+  #seis { display:block; width:100%; height:38px; background:#070503; border:1px solid var(--line); border-radius:3px; }
+  #seisCap { font-size:11px; color:var(--muted); text-align:center; letter-spacing:.06em; margin:3px 0 4px; min-height:14px; }
+  #stats { display:flex; justify-content:space-between; align-items:center; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  #stats .slots { display:flex; gap:5px; align-items:center; }
+  #stats .slot { width:14px; height:14px; border:1px solid var(--muted); border-radius:2px; opacity:.55; }
+  #stats .slot.on { background:var(--accent); border-color:var(--accent); opacity:1; }
+  #stats .ward { width:12px; height:12px; border:1.5px solid var(--paper); border-radius:50%; margin-left:3px; }
+  #mapWrap { flex:1 1 auto; min-height:0; position:relative; }
+  #map { display:block; width:100%; height:100%; }
+  #panel { flex:0 0 auto; background:var(--panel); border-top:1px solid var(--line); padding:8px 12px calc(10px + env(safe-area-inset-bottom)); }
+  #roomName { margin:0; font-size:19px; font-weight:normal; letter-spacing:.04em; color:var(--paper); }
+  #flavor { margin:3px 0 6px; font-size:13px; line-height:1.35; color:var(--text); font-style:italic; min-height:34px; }
+  #log { font-size:12.5px; line-height:1.35; color:var(--muted); min-height:34px; max-height:70px; overflow:hidden; }
+  #log .new { color:var(--text); }
+  #actions { display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px; }
+  button { font-family:inherit; font-size:14px; letter-spacing:.05em; padding:10px 8px; background:#221a12; color:var(--paper); border:1px solid var(--line); border-radius:3px; cursor:pointer; }
+  button:disabled { opacity:.35; cursor:default; }
+  button.primary { background:#3a2c18; border-color:var(--accent); }
+  button.wide { grid-column: 1 / -1; }
+  button small { display:block; font-size:10.5px; color:var(--muted); letter-spacing:.04em; margin-top:2px; }
+  #modal { position:absolute; inset:0; background:rgba(4,3,2,.78); display:flex; align-items:center; justify-content:center; padding:18px; z-index:10; }
+  #modal[hidden] { display:none; }
+  .card { width:100%; max-width:420px; max-height:88%; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:18px 18px 14px; box-shadow:0 20px 60px rgba(0,0,0,.7); }
+  .card h1 { margin:0 0 8px; font-size:24px; font-weight:normal; letter-spacing:.06em; color:var(--paper); }
+  .card h1.title { font-size:34px; text-align:center; letter-spacing:.18em; margin:6px 0 14px; }
+  .card p { margin:0 0 10px; font-size:14.5px; line-height:1.45; }
+  .card .muted { color:var(--muted); font-size:13px; }
+  .card .paper { background:var(--paper); color:var(--ink); padding:14px 16px; border-radius:2px; font-size:15px; line-height:1.5; box-shadow:inset 0 0 40px rgba(120,90,40,.25); margin:8px 0 12px; white-space:pre-wrap; }
+  .card .paper.t3 { letter-spacing:.04em; } .card .paper.t4 { letter-spacing:.09em; line-height:1.7; } .card .paper.t5 { letter-spacing:.16em; line-height:2; }
+  .card ol { margin:6px 0 12px; padding-left:22px; font-size:14px; line-height:1.5; }
+  .card .row { display:flex; gap:8px; margin-top:10px; }
+  .card .row button { flex:1; }
+  .card .stat { display:flex; justify-content:space-between; font-size:14px; padding:4px 0; border-bottom:1px dashed var(--line); }
+  #placeHint { position:absolute; left:0; right:0; top:8px; text-align:center; font-size:13px; letter-spacing:.08em; color:var(--paper); text-shadow:0 0 8px #000; pointer-events:none; }
+  #placeHint[hidden] { display:none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top">
+    <canvas id="seis"></canvas>
+    <div id="seisCap"></div>
+    <div id="stats"><div class="slots" id="slots"></div><div id="wardsBox" class="slots"></div><div id="turnBox">Turn 0</div></div>
+  </div>
+  <div id="mapWrap"><canvas id="map"></canvas><div id="placeHint" hidden></div></div>
+  <div id="panel">
+    <h2 id="roomName"></h2>
+    <p id="flavor"></p>
+    <div id="log"></div>
+    <div id="actions"></div>
+  </div>
+</div>
+<div id="modal" hidden><div class="card" id="card"></div></div>
+<script>
+// ==ENGINE START==
+// ============================================================================
+// ===== TUNING — every number that shapes the game ===========================
+// ============================================================================
+const TUNING = {
+  K_START: 1,                 // rooms the threat moves per SEARCH at the start
+  K_PER_TAKE: 1,              // permanent speed added per component taken
+  WARDS_START: 1,             // wards in hand at turn one
+  HEARING_RADIUS: 2,          // within this many rooms the threat is heard for free
+  START_ROOM: 'hall',
+  RITUAL_ROOM: 'well',
+  THREAT_START: 'well',       // where it sleeps
+  THREAT_SLEEPS_UNTIL_FIRST_SEARCH: true,
+  NOTE_PRIORITY: ['component', 'ward', 'empty'], // what a found note prefers to reveal, nearest first
+  COMPONENTS_NEEDED: 5,
+  // The house. gx/gy place rooms on a 4x4 plan. kind: component | ward | empty | ritual.
+  ROOMS: [
+    { id: 'nur',  gx: 0, gy: 0, kind: 'component', item: 'musicbox' },
+    { id: 'sew',  gx: 1, gy: 0, kind: 'ward' },
+    { id: 'mas',  gx: 2, gy: 0, kind: 'component', item: 'veil' },
+    { id: 'bath', gx: 3, gy: 0, kind: 'empty' },
+    { id: 'lib',  gx: 0, gy: 1, kind: 'component', item: 'page' },
+    { id: 'stu',  gx: 1, gy: 1, kind: 'empty' },
+    { id: 'land', gx: 2, gy: 1, kind: 'empty' },
+    { id: 'lin',  gx: 3, gy: 1, kind: 'ward' },
+    { id: 'par',  gx: 0, gy: 2, kind: 'empty' },
+    { id: 'din',  gx: 1, gy: 2, kind: 'ward' },
+    { id: 'bs',   gx: 2, gy: 2, kind: 'empty' },
+    { id: 'kit',  gx: 3, gy: 2, kind: 'empty' },
+    { id: 'cons', gx: 0, gy: 3, kind: 'component', item: 'root' },
+    { id: 'hall', gx: 1, gy: 3, kind: 'empty' },
+    { id: 'well', gx: 2, gy: 3, kind: 'ritual' },
+    { id: 'pan',  gx: 3, gy: 3, kind: 'component', item: 'teeth' },
+  ],
+  DOORS: [['nur','sew'],['nur','lib'],['sew','stu'],['mas','land'],['mas','bath'],['bath','lin'],['lin','land'],['lin','kit'],
+          ['land','stu'],['land','bs'],['lib','par'],['par','cons'],['par','din'],['din','hall'],['hall','cons'],['din','bs'],
+          ['bs','kit'],['bs','well'],['kit','pan'],['pan','well'],['stu','din']],
+};
+
+// ============================================================================
+// ===== CONTENT — every string of fiction. Rename freely; logic never reads meaning.
+// ============================================================================
+const CONTENT = {
+  title: 'THE UNSEALING',
+  tagline: 'Five things. One house. Something under it.',
+  intro: [
+    'You came in through the coal door an hour after midnight. The house has five things in it that were never meant to be brought together, and you are going to bring them together, in the well room, under the iron lid.',
+    'Something sleeps down there. Every room you search stirs it. Every thing you take wakes it further, and it never goes back to sleep.',
+    'You will know how fast it moves. You can always find out where it is. Knowing is never free.',
+  ],
+  begin: 'Go in',
+  threat: 'it',
+  rooms: {
+    hall: { name: 'Front Hall', enter: ['The door closed behind you without a sound. Coats still hang on their hooks, waiting for people who are not coming back.', 'The coats have turned to face the wall.', 'The hall is longer than it was. The door at the end of it is not the one you came in by.'] },
+    cons: { name: 'Conservatory', enter: ['Glass and dead ferns. Something has been growing here in the dark, pale and patient.', 'The ferns lean toward you as you pass.', 'The glass is fogged from the inside. A hand has wiped a circle in it, from the inside.'] },
+    par:  { name: 'Parlour', enter: ['Chairs arranged for a conversation that ended badly. Dust on everything but the mantel clock.', 'The clock has stopped at a time that has not happened yet.', 'The chairs are closer together than they were. All of them face the floor.'] },
+    din:  { name: 'Dining Room', enter: ['The table is set for eight. The plates are clean. The chairs are pushed in.', 'One chair has been pulled out.', 'Every chair is pulled out. Every plate has something on it now.'] },
+    bs:   { name: 'Back Stair', enter: ['Narrow servants’ stairs, worn hollow in the middle by a century of feet. They go up. They also go down.', 'The stairs are wet.', 'The stairs go down further than the house does.'] },
+    kit:  { name: 'Kitchen', enter: ['A cold range, copper pans, and a smell of iron under the soap.', 'Something is in the sink. You do not look.', 'The pans are ringing, very softly, all at once.'] },
+    pan:  { name: 'Pantry', enter: ['Shelves of preserves with handwritten labels. Some of the handwriting is not adult.', 'The labels have all been turned to face the wall.', 'The jars are breathing.'] },
+    well: { name: 'Well Room', enter: ['A brick room under the house, and in its middle a well with a lid of iron, chained. Beneath the lid, breathing.', 'The chain is warm.', 'The lid is open a finger’s width. It is waiting to see what you brought.'] },
+    lib:  { name: 'Library', enter: ['Books shelved by colour rather than subject. The family register lies open on the desk, as if consulted often.', 'The books have been reshelved by weight.', 'The books are open. All of them. All to the same page.'] },
+    stu:  { name: 'Study', enter: ['A desk, a dead lamp, a ledger of debts. The last entry is in a hand that shakes.', 'The ledger has a new entry. It is your name, and a sum.', 'The desk has been dragged against the door you came in by. You are on the wrong side of it.'] },
+    land: { name: 'Upstairs Landing', enter: ['A long landing with a window at the end. The window shows a garden this house does not have.', 'The garden in the window is closer.', 'There is no window. There is a garden.'] },
+    lin:  { name: 'Linen Closet', enter: ['Sheets folded with terrible precision. Lavender, and under the lavender, the well.', 'One sheet is unfolded. It is the right length for you.', 'The sheets are damp and they are warm.'] },
+    nur:  { name: 'Nursery', enter: ['A cot, a rocking horse, and on the sill a music box. The horse is still rocking.', 'The horse has stopped. It is facing you.', 'The cot is occupied. You do not look.'] },
+    sew:  { name: 'Sewing Room', enter: ['Pins in a cushion shaped like a heart. Something half-finished under the machine.', 'The machine is running with no one at it.', 'The thing under the machine is finished. It is roughly your size.'] },
+    mas:  { name: 'Master Bedroom', enter: ['A bed made tight as a drum. A veil laid out on it as if for the morning.', 'The bed has been slept in since you were last here.', 'The bed is unmade and the sheets are on the floor and they are wet.'] },
+    bath: { name: 'Bathroom', enter: ['A clawfoot tub, full. The water is clear and very cold and does not reflect you.', 'The water is moving.', 'The tub is empty and the floor is not.'] },
+  },
+  items: {
+    musicbox: { name: 'the music box', short: 'Music Box', found: 'A music box on the sill, its key half-turned. It is waiting to finish the tune.', take: 'You close it in your hand. Somewhere below you, the tune finishes.' },
+    teeth:    { name: 'the jar of teeth', short: 'Jar of Teeth', found: 'Behind the preserves, a jar labelled in a child’s hand: MINE. It is full of teeth.', take: 'The jar is warm.' },
+    veil:     { name: 'the veil', short: 'Veil', found: 'A wedding veil, yellowed, laid out on the bed for a morning that never came.', take: 'It weighs more than lace should.' },
+    page:     { name: 'the register page', short: 'Register Page', found: 'The family register, open at a page of births. One name has been written in, crossed out, and written in again.', take: 'The page tears cleanly, as if it wanted to.' },
+    root:     { name: 'the pale root', short: 'Pale Root', found: 'Under the ferns, a root as thick as a wrist, pale as a thing kept from the sun. It goes down through the floor.', take: 'It comes up in one long piece. It comes up wet.' },
+  },
+  ward: {
+    name: 'a ward', short: 'Ward',
+    found: { din: 'Under the table, a circle of chalk, unbroken. Someone drew it and then sat inside it for a very long time.',
+             sew: 'Under the machine, a hem stitched in a pattern that hurts to follow. Half-finished. Enough.',
+             lin: 'Folded into the sheets, a knot of red thread, tied by someone who knew exactly what they were doing.' },
+    take: 'You take it. It will hold, once.',
+  },
+  // Found notes, by kind of room they reveal, one voice per degradation tier (0-5). {room} {item} {ROOM} {ITEM} are filled in.
+  notes: {
+    component: [
+      'A shopping list, folded twice. On the back, in a different hand: “{item} — still in the {room}. Don’t move it. Don’t.”',
+      'A letter, never sent. “…I have put {item} in the {room}, where the children will not think to look. I sleep a little better. Not much.”',
+      'Written on the wallpaper at knee height: {item}. {room}. Beneath it, a drawing of this house with one room blacked out.',
+      'Scratched into the floorboard, deep: {ROOM}. {ITEM}. HURRY.',
+      'the {room} the {room} the {room} {item} it is still there it is still there it is still',
+      '{ITEM}\n{ROOM}\n{ITEM}\n{ROOM}\n{ITEM}',
+    ],
+    ward: [
+      'A note pinned to the wall: “There is a ward in the {room}. If it wakes, stand inside the ward and do not speak.”',
+      'A diary page. “I made another in the {room}. I do not believe they work more than once. I do not believe anything works more than once.”',
+      '“The {room}. The {room}. There is one in the {room}.” The same sentence, in three different hands.',
+      'Burned into the plaster: ONE LEFT. {ROOM}.',
+      '{room} hold {room} hold hold hold {room}',
+      '{ROOM}\nhold',
+    ],
+    empty: [
+      'An inventory, in a neat hand. Beside “{room}”: “nothing worth the trouble.”',
+      '“Don’t waste the candle on the {room}. There is nothing in it. There is nothing in it.”',
+      'A map of the house drawn from memory. The {room} is marked with a single word: EMPTY.',
+      '{ROOM} — EMPTY — EMPTY — EMPTY, written in a spiral.',
+      '{room} nothing {room} nothing nothing nothing',
+      'nothing\n{ROOM}\nnothing',
+    ],
+    none: [
+      'A blank page. Someone pressed hard enough to leave the words without the ink. You cannot read them.',
+      'A blank page, damp at one corner.',
+      'A blank page. It has been folded and unfolded so many times it is soft as cloth.',
+      'A page with a hole burned through the middle.',
+      'The page is warm.',
+      'The page is warm and it moves when you breathe on it.',
+    ],
+    foundTitle: ['A note', 'A note', 'Writing', 'Writing', 'Marks', 'Marks'],
+  },
+  search: {
+    nothing: 'Nothing here but the note.',
+    stirs: ['Below you, something turns over.', 'Below you, something turns over and does not settle.', 'The floor thrums once, like a struck string.', 'Every door in the house shifts on its hinges.', 'The walls draw breath.', 'The house leans toward you.'],
+    wakes: 'It is awake now.',
+  },
+  hearing: {
+    d1: 'It is in the next room. You can hear it breathing through the wall.',
+    d2: 'Two rooms off, toward the {room}: something drags itself across a floor.',
+    listenNear: 'You hold your breath. It is close. You do not need to listen to know it.',
+    listenFar: 'You hold your breath. Far off, in the {room}: a sound like furniture moved by something that has never seen furniture.',
+    lastHeard: 'last heard {n} turn{s} ago',
+    asleepHere: 'It sleeps in the {room}. You know that much.',
+  },
+  moves: { locked: 'The lid is chained. It wants all five first.', intoIt: { title: 'It is in there.', body: 'You can hear it through the door. Go in anyway?', yes: 'Go in', no: 'Stay' } },
+  take: {
+    confirmTitle: 'Wake it further?',
+    confirmBody: 'Take {item}, and it will come {k} rooms closer. It will never move slower than that again.',
+    yes: 'Take it', no: 'Not yet',
+    reward: ['One.', 'Two.', 'Three.', 'Four.', 'Five. Everything you came for.'],
+    ward: 'The ward is yours. It will hold, once.',
+  },
+  encounter: {
+    withWard: { title: 'It is in the room with you.', body: 'The ward takes the weight of it and cracks. It goes where you send it, and it goes unwillingly.', button: 'Choose where it goes' },
+    placeHint: 'Tap a room. It must be one you have not searched.',
+    placed: 'It goes to the {room}. The door shuts on it. You have until the next thing you disturb.',
+    death: { title: 'It found you.', body: 'You woke it {n} time{s}.', acts: 'You took {item} from the {room}.', none: 'You had not yet taken anything. It came anyway. It was always going to.', stats: 'Turn {turn}. {c} of five.', again: 'Again' },
+  },
+  win: {
+    title: 'It is done.',
+    body: 'The five things go into the well in the order you took them. The lid closes on its own. The house is quiet in a way it has never been, and it will stay that way now, for as long as it stands.',
+    turns: 'Turns', wards: 'Wards unspent', best: 'Fewest turns',
+    share: 'I unsealed the house in {turns} turns with {wards} ward{s} to spare.',
+    copy: 'Copy', copied: 'Copied', again: 'Again',
+  },
+  ui: {
+    search: 'Search', searchSub: 'wakes it {k} room{s} closer', searched: 'Searched', itIsHere: 'It is here',
+    take: 'Take {item}', listen: 'Listen', listenSub: 'costs a turn. It does not move', enact: 'Finish it', enactSub: 'Bring all five together',
+    turn: 'Turn {n}', seis: ['It moves {k} room for every thing you disturb.', 'It moves {k} rooms for every thing you disturb.'],
+    lockedRoom: 'Chained', ritualHere: 'The well. Bring all five here.',
+  },
+};
+
+// ============================================================================
+// ===== ENGINE — pure rules, no DOM. Deterministic. ==========================
+// ============================================================================
+function createEngine(T, C) {
+  const rooms = {}; T.ROOMS.forEach(r => { rooms[r.id] = Object.assign({ adj: [] }, r); });
+  T.DOORS.forEach(([a, b]) => { rooms[a].adj.push(b); rooms[b].adj.push(a); });
+  const order = T.ROOMS.map(r => r.id);
+  const DIST = {}, NEXT = {};
+  for (const s of order) { // BFS from every room; deterministic parent choice by room order
+    const d = { [s]: 0 }, parent = {}, q = [s];
+    while (q.length) { const u = q.shift(); for (const v of order.filter(x => rooms[u].adj.includes(x))) if (!(v in d)) { d[v] = d[u] + 1; parent[v] = u; q.push(v); } }
+    DIST[s] = d; NEXT[s] = parent;
+  }
+  const dist = (a, b) => DIST[a][b];
+  function path(a, b) { // shortest path a -> b, excluding a, including b
+    const p = []; let cur = b; while (cur !== a) { p.push(cur); cur = NEXT[a][cur]; } return p.reverse();
+  }
+  const S = {
+    turn: 0, k: T.K_START, taken: [], wards: T.WARDS_START, player: T.START_ROOM, threat: T.THREAT_START,
+    awake: !T.THREAT_SLEEPS_UNTIL_FIRST_SEARCH, searched: {}, revealed: {}, removed: {}, visited: { [T.START_ROOM]: 1 },
+    phase: 'play', lastKnown: { room: T.THREAT_START, turn: 0 }, heard: false, listenPath: null, tier: 0, deathAt: null, notes: 0,
+  };
+  const tier = () => Math.min(5, S.taken.length);
+  function updateHearing(ev) {
+    const d = dist(S.threat, S.player); S.heard = d <= T.HEARING_RADIUS;
+    if (S.heard) { S.lastKnown = { room: S.threat, turn: S.turn }; ev.push({ type: 'heard', room: S.threat, d, toward: d > 0 ? path(S.threat, S.player)[0] : null }); }
+  }
+  function encounter(ev) {
+    S.threat = S.player;
+    if (S.wards > 0) { S.wards--; S.phase = 'placement'; ev.push({ type: 'encounter', ward: true }); }
+    else { S.phase = 'dead'; S.deathAt = S.player; ev.push({ type: 'death' }); }
+  }
+  function advance(steps, ev) {
+    if (!S.awake) { S.awake = true; ev.push({ type: 'wakes' }); }
+    const from = S.threat, p = path(S.threat, S.player), walked = [];
+    for (let i = 0; i < steps && i < p.length; i++) {
+      S.threat = p[i]; walked.push(p[i]);
+      if (S.threat === S.player) { ev.push({ type: 'threatMoved', from, to: S.threat, walked, steps }); encounter(ev); return; }
+    }
+    ev.push({ type: 'threatMoved', from, to: S.threat, walked, steps });
+  }
+  function placementTargets() {
+    let t = order.filter(r => !S.searched[r] && r !== S.player);
+    if (!t.length) t = order.filter(r => r !== S.player);
+    return t;
+  }
+  function noteTarget() {
+    const cands = order.filter(r => !S.revealed[r] && !S.searched[r] && rooms[r].kind !== 'ritual' && r !== S.player);
+    for (const kind of T.NOTE_PRIORITY) {
+      const c = cands.filter(r => rooms[r].kind === kind).sort((a, b) => dist(S.player, a) - dist(S.player, b) || order.indexOf(a) - order.indexOf(b));
+      if (c.length) return c[0];
+    }
+    return null;
+  }
+  function fill(tpl, room, item) {
+    const rn = room ? C.rooms[room].name : '', it = item ? C.items[item].name : C.ward.name;
+    return tpl.replace(/\{room\}/g, rn).replace(/\{ROOM\}/g, rn.toUpperCase()).replace(/\{item\}/g, it).replace(/\{ITEM\}/g, it.toUpperCase());
+  }
+  function legal() {
+    const here = rooms[S.player], L = { move: [], search: false, take: null, takeKind: null, listen: false, enact: false, place: [] };
+    if (S.phase === 'placement') { L.place = placementTargets(); return L; }
+    if (S.phase !== 'play') return L;
+    L.move = here.adj.filter(r => !(rooms[r].kind === 'ritual' && S.taken.length < T.COMPONENTS_NEEDED));
+    L.search = !S.searched[S.player] && here.kind !== 'ritual' && S.threat !== S.player;
+    if (S.revealed[S.player] && !S.removed[S.player] && (here.kind === 'component' || here.kind === 'ward')) { L.take = here.kind === 'component' ? here.item : 'ward'; L.takeKind = here.kind; }
+    L.listen = true;
+    L.enact = here.kind === 'ritual' && S.taken.length >= T.COMPONENTS_NEEDED;
+    return L;
+  }
+  function act(a) {
+    const ev = [], L = legal(); S.listenPath = null;
+    if (a.type === 'place') {
+      if (S.phase !== 'placement' || !L.place.includes(a.room)) return [{ type: 'illegal' }];
+      S.threat = a.room; S.phase = 'play'; S.lastKnown = { room: a.room, turn: S.turn }; ev.push({ type: 'placed', room: a.room }); updateHearing(ev); return ev;
+    }
+    if (S.phase !== 'play') return [{ type: 'illegal' }];
+    if (a.type === 'move') {
+      if (!L.move.includes(a.room)) return [{ type: 'illegal', why: rooms[a.room] && rooms[a.room].kind === 'ritual' ? 'locked' : 'notAdjacent' }];
+      S.turn++; S.player = a.room; S.visited[a.room] = (S.visited[a.room] || 0) + 1; ev.push({ type: 'moved', room: a.room, first: S.visited[a.room] === 1 });
+      if (S.threat === S.player) { encounter(ev); return ev; }
+      updateHearing(ev); return ev;
+    }
+    if (a.type === 'search') {
+      if (!L.search) return [{ type: 'illegal' }];
+      S.turn++; const r = rooms[S.player]; S.searched[S.player] = true; S.revealed[S.player] = true;
+      if (r.kind === 'empty') {
+        const tgt = noteTarget(); S.notes++;
+        if (tgt) { S.revealed[tgt] = true; const kind = rooms[tgt].kind; ev.push({ type: 'note', room: tgt, kind, text: fill(C.notes[kind][tier()], tgt, rooms[tgt].item), tier: tier() }); }
+        else ev.push({ type: 'note', room: null, kind: 'none', text: C.notes.none[tier()], tier: tier() });
+      } else ev.push({ type: 'found', kind: r.kind, item: r.kind === 'component' ? r.item : 'ward', room: S.player });
+      advance(S.k, ev); if (S.phase === 'play') updateHearing(ev); return ev;
+    }
+    if (a.type === 'take') {
+      if (!L.take) return [{ type: 'illegal' }];
+      S.turn++; const r = rooms[S.player]; S.removed[S.player] = true;
+      if (r.kind === 'component') { S.taken.push(r.item); S.k += T.K_PER_TAKE; S.tier = tier(); ev.push({ type: 'took', item: r.item, n: S.taken.length, tier: S.tier }); advance(S.k, ev); }
+      else { S.wards++; ev.push({ type: 'tookWard' }); }
+      if (S.phase === 'play') updateHearing(ev); return ev;
+    }
+    if (a.type === 'listen') {
+      S.turn++; S.lastKnown = { room: S.threat, turn: S.turn }; S.listenPath = path(S.threat, S.player);
+      ev.push({ type: 'listen', room: S.threat, d: dist(S.threat, S.player), path: S.listenPath }); updateHearing(ev); return ev;
+    }
+    if (a.type === 'enact') {
+      if (!L.enact) return [{ type: 'illegal' }];
+      S.phase = 'won'; ev.push({ type: 'won' }); return ev;
+    }
+    return [{ type: 'illegal' }];
+  }
+  return { S, rooms, order, dist, path, legal, act, tier, fill };
+}
+// ==ENGINE END==
+if (typeof module !== 'undefined' && module.exports) module.exports = { TUNING, CONTENT, createEngine };
+if (typeof document !== 'undefined') (() => {
+'use strict';
+
+// ============================================================================
+// ===== AUDIO — all generated. Drone layers thicken by tier; knocks; cues. ===
+// ============================================================================
+const AUDIO = {
+  ctx: null, master: null, drone: null, layers: [], knockTimer: null, tier: -1,
+  init() { if (this.ctx) return; try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.master = this.ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ctx.destination); } catch (e) { this.ctx = null; } },
+  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  osc(freq, type, at, dur, vol, opts) {
+    if (!this.ctx) return; const c = this.ctx, o = c.createOscillator(), g = c.createGain(), pan = c.createStereoPanner ? c.createStereoPanner() : null;
+    opts = opts || {}; o.type = type; o.frequency.setValueAtTime(freq, at); if (opts.to) o.frequency.exponentialRampToValueAtTime(opts.to, at + dur);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vol, at + (opts.attack || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(g); if (pan) { pan.pan.value = opts.pan || 0; g.connect(pan); pan.connect(this.master); } else g.connect(this.master); o.start(at); o.stop(at + dur + 0.05);
+  },
+  noise(at, dur, vol, lp, opts) {
+    if (!this.ctx) return; const c = this.ctx, n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, (opts && opts.decay) || 1.5);
+    const s = c.createBufferSource(); s.buffer = b; const g = c.createGain(); g.gain.setValueAtTime(vol, at); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    const f = c.createBiquadFilter(); f.type = (opts && opts.type) || 'lowpass'; f.frequency.value = lp; const pan = c.createStereoPanner ? c.createStereoPanner() : null;
+    s.connect(f); f.connect(g); if (pan) { pan.pan.value = (opts && opts.pan) || 0; g.connect(pan); pan.connect(this.master); } else g.connect(this.master); s.start(at);
+  },
+  now() { return this.ctx ? this.ctx.currentTime : 0; },
+  // --- one-shots
+  step() { const n = this.now(); this.noise(n, 0.09, 0.08, 500); this.noise(n + 0.14, 0.07, 0.05, 400); },
+  rustle() { const n = this.now(); this.noise(n, 0.35, 0.09, 3200, { type: 'bandpass' }); this.noise(n + 0.2, 0.3, 0.07, 2600, { type: 'bandpass' }); },
+  chalk() { const n = this.now(); this.noise(n, 0.25, 0.06, 6000, { type: 'highpass' }); this.osc(880, 'sine', n + 0.05, 0.3, 0.03); },
+  reward() { // sincerely triumphant, every tier
+    const n = this.now(); [261.63, 329.63, 392, 523.25, 659.25].forEach((f, i) => { this.osc(f, 'sine', n + i * 0.11, 0.9, 0.12); this.osc(f * 2, 'triangle', n + i * 0.11, 0.5, 0.03); });
+    this.osc(1046.5, 'sine', n + 0.6, 1.4, 0.06); this.osc(1318.5, 'sine', n + 0.72, 1.6, 0.05);
+  },
+  breath() { const n = this.now(); this.noise(n, 1.2, 0.05, 900, { decay: 0.6 }); },
+  distant(pan, strength) { const n = this.now(); const v = 0.10 + 0.05 * strength; this.osc(48, 'sine', n, 0.6, v, { pan, to: 30 }); this.noise(n + 0.02, 0.25, v * 0.6, 260, { pan }); },
+  near(pan) { const n = this.now(); this.osc(40, 'sine', n, 1.2, 0.25, { pan, to: 26, attack: 0.05 }); this.noise(n, 0.5, 0.18, 200, { pan }); this.noise(n + 0.6, 0.9, 0.06, 700, { pan, decay: 0.7 }); },
+  shatter() { const n = this.now(); this.osc(36, 'sine', n, 1.6, 0.35, { to: 22, attack: 0.02 }); this.noise(n + 0.1, 0.7, 0.25, 3800, { type: 'bandpass' }); this.noise(n + 0.3, 1.2, 0.1, 800); },
+  death() { const n = this.now(); this.osc(30, 'sine', n, 3.5, 0.5, { to: 18, attack: 0.03 }); this.noise(n, 0.6, 0.3, 300); if (this.master) this.master.gain.setTargetAtTime(0.15, n + 0.8, 1.5); },
+  win() { const n = this.now(); [196, 261.63, 329.63, 392, 523.25].forEach((f, i) => this.osc(f, 'sine', n + i * 0.35, 3.5, 0.10)); if (this.master) this.master.gain.setTargetAtTime(0.5, n + 3, 3); },
+  // --- ambient bed, rebuilt per tier
+  setTier(t) {
+    if (!this.ctx || t === this.tier) return; this.tier = t;
+    for (const L of this.layers) { try { L.g.gain.setTargetAtTime(0.0001, this.now(), 1.2); L.o.stop(this.now() + 4); } catch (e) {} } this.layers = [];
+    const c = this.ctx, add = (freq, type, vol, lp, detune) => { const o = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter(); o.type = type; o.frequency.value = freq; if (detune) o.detune.value = detune; f.type = 'lowpass'; f.frequency.value = lp; g.gain.value = 0.0001; g.gain.setTargetAtTime(vol, this.now(), 2.5); o.connect(f); f.connect(g); g.connect(this.master); o.start(); this.layers.push({ o, g }); };
+    const bed = [
+      [[55, 'sine', 0.035, 200, 0]],
+      [[55, 'sine', 0.04, 200, 0], [41.2, 'triangle', 0.03, 160, 0]],
+      [[55, 'sine', 0.045, 220, 0], [41.2, 'triangle', 0.035, 160, 0], [82.4, 'sawtooth', 0.02, 240, -12]],
+      [[55, 'sine', 0.05, 240, 0], [41.2, 'triangle', 0.04, 180, 0], [82.4, 'sawtooth', 0.03, 300, -12], [110, 'sawtooth', 0.02, 400, 9]],
+      [[55, 'sine', 0.06, 260, 0], [41.2, 'triangle', 0.045, 200, 0], [82.4, 'sawtooth', 0.04, 360, -18], [110, 'sawtooth', 0.03, 520, 14], [1760, 'sine', 0.008, 4000, 5]],
+      [[55, 'sine', 0.07, 300, 0], [36.7, 'triangle', 0.05, 200, 0], [82.4, 'sawtooth', 0.05, 420, -25], [110, 'sawtooth', 0.04, 640, 20], [2093, 'sine', 0.014, 5000, 7], [27.5, 'sine', 0.06, 100, 0]],
+    ][Math.min(5, t)];
+    bed.forEach(a => add(...a));
+    this.scheduleKnocks(t);
+  },
+  scheduleKnocks(t) {
+    clearTimeout(this.knockTimer); const base = [0, 16000, 10000, 6500, 4200, 2600][Math.min(5, t)]; if (!base) return;
+    const tick = () => { if (this.tier !== t) return; const n = this.now(), pan = Math.random() * 2 - 1; this.noise(n, 0.12, 0.05 + 0.03 * t, 380 + Math.random() * 200, { pan });
+      if (Math.random() < 0.4) this.noise(n + 0.18 + Math.random() * 0.1, 0.1, 0.04 + 0.02 * t, 300, { pan }); this.knockTimer = setTimeout(tick, base * (0.5 + Math.random())); };
+    this.knockTimer = setTimeout(tick, base * (0.4 + Math.random() * 0.6));
+  },
+};
+
+// ============================================================================
+// ===== RENDER — the one layer real art replaces later ========================
+// ============================================================================
+const PALETTES = [ // by degradation tier 0-5
+  { bg: '#0b0907', floor: '#2b2118', floorLit: '#5c4a30', wall: '#6b5741', door: '#d9b46a', light: '#ffd27a', text: '#e9dcc3', muted: '#8e8170', ghost: '#9a8c7a', threat: '#050302', threatRing: '#6b3a2a', vignette: 0.55, filter: 'none' },
+  { bg: '#0a0a0b', floor: '#25211f', floorLit: '#524638', wall: '#5f5449', door: '#c9a862', light: '#f2c574', text: '#e2d8c4', muted: '#857b70', ghost: '#8f867c', threat: '#050303', threatRing: '#73382e', vignette: 0.6, filter: 'saturate(0.92)' },
+  { bg: '#090b09', floor: '#1f2420', floorLit: '#3f4a3c', wall: '#4d5a4a', door: '#bfbf6a', light: '#e2d98a', text: '#d8dcc6', muted: '#7d867a', ghost: '#8a9385', threat: '#040504', threatRing: '#7a3b2b', vignette: 0.66, filter: 'saturate(0.85) contrast(1.05)' },
+  { bg: '#0a070a', floor: '#231a23', floorLit: '#4a3548', wall: '#5e3f56', door: '#c98a9a', light: '#e2a0a8', text: '#e6cfd2', muted: '#86727c', ghost: '#93808a', threat: '#030203', threatRing: '#9a2f2a', vignette: 0.72, filter: 'hue-rotate(-8deg) contrast(1.1)' },
+  { bg: '#0b0508', floor: '#1e1016', floorLit: '#4a1f2b', wall: '#6d2637', door: '#d05a5a', light: '#e05a5a', text: '#f0cfcf', muted: '#8c6a6f', ghost: '#9a7a80', threat: '#020102', threatRing: '#c03a2a', vignette: 0.78, filter: 'contrast(1.22) saturate(1.25)' },
+  { bg: '#020202', floor: '#0a0a0a', floorLit: '#2a2a2a', wall: '#8c8c8c', door: '#ffffff', light: '#ffffff', text: '#ffffff', muted: '#9a9a9a', ghost: '#bbbbbb', threat: '#000000', threatRing: '#ff2a1a', vignette: 0.86, filter: 'contrast(1.45) grayscale(0.7)' },
+];
+const GLYPH = { // placeholder icons for items; swap for sprites here
+  musicbox(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.strokeRect(x - s / 2, y - s / 3, s, s * 0.66); ctx.beginPath(); ctx.moveTo(x - s / 2, y - s / 3); ctx.lineTo(x - s / 2 + s * 0.2, y - s * 0.6); ctx.lineTo(x + s / 2 + s * 0.2, y - s * 0.6); ctx.lineTo(x + s / 2, y - s / 3); ctx.stroke(); },
+  teeth(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - s * 0.35, y - s * 0.45); ctx.lineTo(x - s * 0.35, y + s * 0.5); ctx.lineTo(x + s * 0.35, y + s * 0.5); ctx.lineTo(x + s * 0.35, y - s * 0.45); ctx.stroke(); ctx.strokeRect(x - s * 0.42, y - s * 0.6, s * 0.84, s * 0.16); ctx.fillStyle = c; for (let i = -1; i <= 1; i++) ctx.fillRect(x + i * s * 0.2 - 1, y, 2, 3); },
+  veil(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, y - s * 0.55); ctx.quadraticCurveTo(x - s * 0.6, y + s * 0.1, x - s * 0.45, y + s * 0.55); ctx.moveTo(x, y - s * 0.55); ctx.quadraticCurveTo(x + s * 0.6, y + s * 0.1, x + s * 0.45, y + s * 0.55); ctx.stroke(); },
+  page(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.strokeRect(x - s * 0.35, y - s * 0.5, s * 0.7, s); for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(x - s * 0.2, y - s * 0.25 + i * s * 0.25); ctx.lineTo(x + s * 0.2, y - s * 0.25 + i * s * 0.25); ctx.stroke(); } },
+  root(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y - s * 0.55); ctx.quadraticCurveTo(x - s * 0.4, y, x + s * 0.1, y + s * 0.2); ctx.quadraticCurveTo(x + s * 0.4, y + s * 0.4, x - s * 0.1, y + s * 0.6); ctx.stroke(); },
+  ward(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.arc(x, y, s * 0.45, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); },
+  well(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, s * 0.5, 0, Math.PI * 2); ctx.stroke(); ctx.beginPath(); ctx.arc(x, y, s * 0.22, 0, Math.PI * 2); ctx.stroke(); },
+  empty(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x - s * 0.25, y); ctx.lineTo(x + s * 0.25, y); ctx.stroke(); },
+  lock(ctx, x, y, s, c) { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.strokeRect(x - s * 0.3, y - s * 0.05, s * 0.6, s * 0.5); ctx.beginPath(); ctx.arc(x, y - s * 0.1, s * 0.22, Math.PI, 0); ctx.stroke(); },
+};
+
+const RENDER = {
+  canvas: null, ctx: null, W: 0, H: 0, dpr: 1, layout: {}, t0: performance.now(), pal: PALETTES[0], hitRooms: [],
+  init(canvas) { this.canvas = canvas; this.ctx = canvas.getContext('2d'); this.resize(); },
+  resize() {
+    const r = this.canvas.parentElement.getBoundingClientRect(); this.dpr = Math.min(3, window.devicePixelRatio || 1);
+    this.W = Math.max(200, r.width); this.H = Math.max(200, r.height); this.canvas.width = Math.round(this.W * this.dpr); this.canvas.height = Math.round(this.H * this.dpr);
+    const cols = 4, rows = 4, pad = 10, cw = (this.W - pad * 2) / cols, ch = (this.H - pad * 2) / rows; this.layout = { pad, cw, ch, inset: Math.min(cw, ch) * 0.07 };
+  },
+  box(room) { const L = this.layout; return { x: L.pad + room.gx * L.cw + L.inset, y: L.pad + room.gy * L.ch + L.inset, w: L.cw - L.inset * 2, h: L.ch - L.inset * 2 }; },
+  roomAt(px, py) { const r = this.canvas.getBoundingClientRect(); px *= this.W / r.width; py *= this.H / r.height; for (const h of this.hitRooms) if (px >= h.x && px <= h.x + h.w && py >= h.y && py <= h.y + h.h) return h.id; return null; },
+  draw(g, ui) {
+    const ctx = this.ctx, S = g.S, P = this.pal, W = this.W, H = this.H, t = (performance.now() - this.t0) / 1000;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0); ctx.fillStyle = P.bg; ctx.fillRect(0, 0, W, H);
+    this.hitRooms = [];
+    const visible = S.heard || ui.showThreat, flick = 0.92 + 0.08 * Math.sin(t * 7.3) * Math.sin(t * 2.1 + 1) + 0.03 * Math.sin(t * 23);
+    const lightOf = r => { const d = g.dist(S.player, r); return d === 0 ? 1 : d === 1 ? 0.5 : d === 2 ? 0.26 : 0.1; };
+    const boxes = {}; for (const id of g.order) boxes[id] = this.box(g.rooms[id]);
+    // rooms
+    for (const id of g.order) {
+      const r = g.rooms[id], b = boxes[id], lit = lightOf(id) * flick, locked = r.kind === 'ritual' && S.taken.length < TUNING.COMPONENTS_NEEDED;
+      this.hitRooms.push({ id, ...b });
+      ctx.fillStyle = mix(P.floor, P.floorLit, lit); ctx.fillRect(b.x, b.y, b.w, b.h);
+      if (lit > 0.4) { const gr = ctx.createRadialGradient(b.x + b.w / 2, b.y + b.h / 2, 2, b.x + b.w / 2, b.y + b.h / 2, Math.max(b.w, b.h) * 0.8); gr.addColorStop(0, rgba(P.light, 0.22 * lit)); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(b.x, b.y, b.w, b.h); }
+      ctx.strokeStyle = mix(P.wall, P.door, lit * 0.3); ctx.lineWidth = 2; ctx.strokeRect(b.x, b.y, b.w, b.h);
+      // highlight: adjacent (move) or placement target
+      const sel = ui.placing ? ui.placeTargets.includes(id) : (ui.moveTargets.includes(id));
+      if (sel) { if (ui.placing) { ctx.fillStyle = rgba(P.door, 0.10 + 0.05 * Math.sin(t * 5)); ctx.fillRect(b.x, b.y, b.w, b.h); } ctx.strokeStyle = rgba(P.door, ui.placing ? 0.75 + 0.25 * Math.sin(t * 5) : 0.35); ctx.lineWidth = ui.placing ? 2.5 : 1.5; ctx.setLineDash(ui.placing ? [] : [4, 4]); ctx.strokeRect(b.x + 3, b.y + 3, b.w - 6, b.h - 6); ctx.setLineDash([]); }
+      // label
+      ctx.fillStyle = rgba(P.text, 0.35 + 0.65 * Math.min(1, lit + 0.2)); ctx.font = `${Math.max(9, Math.min(12, b.w / 7.5))}px "Iowan Old Style", Palatino, Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      wrapText(ctx, C.rooms[id].name.toUpperCase(), b.x + b.w / 2, b.y + 6, b.w - 8, 11);
+      // contents
+      const cx = b.x + b.w / 2, cy = b.y + b.h * 0.62, s = Math.min(b.w, b.h) * 0.3, ic = rgba(P.text, 0.45 + 0.55 * Math.min(1, lit + 0.25));
+      if (r.kind === 'ritual') { GLYPH.well(ctx, cx, cy, s, ic); if (locked) GLYPH.lock(ctx, cx + s * 0.75, cy - s * 0.55, s * 0.6, rgba(P.muted, 0.9)); }
+      else if (S.revealed[id]) {
+        if (S.removed[id] || r.kind === 'empty') GLYPH.empty(ctx, cx, cy, s, rgba(P.muted, 0.6));
+        else { GLYPH[r.kind === 'ward' ? 'ward' : r.item](ctx, cx, cy, s, ic); if (!S.searched[id]) { ctx.strokeStyle = rgba(P.door, 0.5); ctx.lineWidth = 1; ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(cx, cy, s * 0.8, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); } }
+      }
+    }
+    // doors
+    ctx.lineWidth = 4; for (const [a, b] of TUNING.DOORS) {
+      const A = boxes[a], B = boxes[b], lit = Math.max(lightOf(a), lightOf(b)) * flick; ctx.strokeStyle = rgba(P.door, 0.25 + 0.7 * lit);
+      const ax = A.x + A.w / 2, ay = A.y + A.h / 2, bx = B.x + B.w / 2, by = B.y + B.h / 2; ctx.beginPath();
+      if (Math.abs(ax - bx) > Math.abs(ay - by)) { const x = (Math.max(A.x, B.x) + Math.min(A.x + A.w, B.x + B.w)) / 2, y = (ay + by) / 2; ctx.moveTo(x - 1, y - 9); ctx.lineTo(x - 1, y + 9); }
+      else { const y = (Math.max(A.y, B.y) + Math.min(A.y + A.h, B.y + B.h)) / 2, x = (ax + bx) / 2; ctx.moveTo(x - 9, y - 1); ctx.lineTo(x + 9, y - 1); }
+      ctx.stroke();
+    }
+    // listened path
+    if (S.listenPath && ui.showPath) {
+      ctx.strokeStyle = rgba(P.threatRing, 0.9); ctx.lineWidth = 1.5; ctx.setLineDash([3, 5]); ctx.beginPath(); let prev = boxes[S.threat]; ctx.moveTo(prev.x + prev.w / 2, prev.y + prev.h / 2);
+      for (const id of S.listenPath) { const b = boxes[id]; ctx.lineTo(b.x + b.w / 2, b.y + b.h / 2); } ctx.stroke(); ctx.setLineDash([]);
+    }
+    // threat or ghost
+    if (S.phase !== 'title') {
+      if (visible) { const b = boxes[S.threat], x = b.x + b.w / 2, y = b.y + b.h * 0.42, rr = Math.min(b.w, b.h) * (0.17 + 0.015 * Math.sin(t * 2.4));
+        const gr = ctx.createRadialGradient(x, y, 1, x, y, rr * 2.6); gr.addColorStop(0, 'rgba(0,0,0,0.85)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x - rr * 3, y - rr * 3, rr * 6, rr * 6);
+        ctx.fillStyle = P.threat; ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = rgba(P.threatRing, 0.6 + 0.4 * Math.sin(t * 3)); ctx.lineWidth = 1.5; ctx.stroke(); }
+      else if (S.lastKnown) { const b = boxes[S.lastKnown.room], x = b.x + b.w / 2, y = b.y + b.h * 0.4, rr = Math.min(b.w, b.h) * 0.15, age = S.turn - S.lastKnown.turn;
+        ctx.strokeStyle = rgba(P.ghost, Math.max(0.18, 0.7 - age * 0.06)); ctx.lineWidth = 1.5; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = rgba(P.ghost, Math.max(0.25, 0.8 - age * 0.06)); ctx.font = `9px Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(C.hearing.lastHeard.replace('{n}', age).replace('{s}', age === 1 ? '' : 's'), x, b.y + b.h - 13); }
+    }
+    // player
+    { const b = boxes[S.player], x = b.x + b.w / 2, y = b.y + b.h * 0.42, rr = Math.min(b.w, b.h) * 0.1;
+      const gr = ctx.createRadialGradient(x, y, 1, x, y, rr * 5); gr.addColorStop(0, rgba(P.light, 0.35 * flick)); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x - rr * 5, y - rr * 5, rr * 10, rr * 10);
+      ctx.fillStyle = P.text; ctx.beginPath(); ctx.arc(x, y, rr, 0, Math.PI * 2); ctx.fill(); }
+    // vignette
+    { const gr = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.75); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, `rgba(0,0,0,${P.vignette})`); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H); }
+  },
+};
+function hex(c) { return [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)]; }
+function mix(a, b, u) { const A = hex(a), B = hex(b); u = Math.max(0, Math.min(1, u)); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * u)).join(',')})`; }
+function rgba(c, a) { const A = hex(c); return `rgba(${A[0]},${A[1]},${A[2]},${Math.max(0, Math.min(1, a))})`; }
+function wrapText(ctx, text, x, y, maxW, lh) { const words = text.split(' '); let line = ''; for (const w of words) { const test = line ? line + ' ' + w : w; if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); y += lh; line = w; } else line = test; } ctx.fillText(line, x, y); }
+
+// Seismograph: the pulse of the thing below. Amplitude follows k; spikes when it moves.
+const SEIS = { canvas: null, ctx: null, buf: [], spike: 0, k: 1,
+  init(c) { this.canvas = c; this.ctx = c.getContext('2d'); this.resize(); },
+  resize() { const r = this.canvas.getBoundingClientRect(); this.canvas.width = Math.round(r.width * 2); this.canvas.height = Math.round(r.height * 2); this.buf = new Array(Math.round(r.width)).fill(0); },
+  tick() { const amp = 0.06 + 0.12 * this.k + this.spike; let v = (Math.random() - 0.5) * amp; if (Math.random() < 0.02 * this.k) v *= 3; this.buf.push(v); this.buf.shift(); this.spike *= 0.93; },
+  draw(pal) { const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height; ctx.fillStyle = '#070503'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = rgba(pal.door, 0.85); ctx.lineWidth = 2; ctx.beginPath();
+    for (let i = 0; i < this.buf.length; i++) { const x = i / this.buf.length * W, y = H / 2 + Math.max(-1, Math.min(1, this.buf[i])) * H * 0.48; if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); } ctx.stroke(); },
+};
+
+// ============================================================================
+// ===== UI — wires engine, render, audio ======================================
+// ============================================================================
+const C = CONTENT;
+const $ = id => document.getElementById(id);
+let g = null, ui = { showThreat: false, showPath: false, placing: false, placeTargets: [], moveTargets: [], log: [], best: null };
+try { ui.best = parseInt(localStorage.getItem('unsealing.best') || '', 10) || null; } catch (e) {}
+const fmt = (s, o) => s.replace(/\{(\w+)\}/g, (m, k) => (k in o ? o[k] : m));
+
+function newGame() {
+  g = createEngine(TUNING, C); g.S.phase = 'play'; ui.log = []; ui.showThreat = false; ui.showPath = false; ui.placing = false; setTier(0, true);
+  AUDIO.setTier(0);
+  pushLog(fmt(C.hearing.asleepHere, { room: C.rooms[TUNING.THREAT_START].name }));
+  setFlavor(g.S.player, true); refresh();
+}
+function setTier(t, instant) { RENDER.pal = PALETTES[t]; document.body.style.transition = instant ? 'none' : 'filter 2.5s ease'; document.body.style.filter = PALETTES[t].filter; document.documentElement.style.setProperty('--text', PALETTES[t].text); document.documentElement.style.setProperty('--muted', PALETTES[t].muted); }
+function pushLog(s, cls) { ui.log.push({ s, cls }); if (ui.log.length > 6) ui.log.shift(); }
+function setFlavor(room, first) { const stage = g.S.taken.length >= 4 ? 2 : g.S.taken.length >= 2 ? 1 : 0; const lines = C.rooms[room].enter; $('flavor').textContent = lines[Math.min(stage, lines.length - 1)]; }
+
+function refresh() {
+  const S = g.S, L = g.legal(), pal = RENDER.pal;
+  ui.moveTargets = L.move; ui.placeTargets = L.place; ui.placing = S.phase === 'placement';
+  $('placeHint').hidden = true;
+  // stats
+  const slots = $('slots'); slots.innerHTML = ''; for (let i = 0; i < TUNING.COMPONENTS_NEEDED; i++) { const d = document.createElement('div'); d.className = 'slot' + (i < S.taken.length ? ' on' : ''); d.title = S.taken[i] ? C.items[S.taken[i]].short : ''; slots.appendChild(d); }
+  const wb = $('wardsBox'); wb.innerHTML = ''; for (let i = 0; i < S.wards; i++) { const d = document.createElement('div'); d.className = 'ward'; wb.appendChild(d); } if (!S.wards) { wb.textContent = '—'; }
+  $('turnBox').textContent = fmt(C.ui.turn, { n: S.turn });
+  SEIS.k = S.k; $('seisCap').textContent = fmt(C.ui.seis[S.k === 1 ? 0 : 1], { k: S.k });
+  // panel
+  $('roomName').textContent = C.rooms[S.player].name + (g.rooms[S.player].kind === 'ritual' ? '' : '');
+  $('log').innerHTML = ui.log.slice(-2).map((l, i, a) => `<div class="${i === a.length - 1 ? 'new' : ''}">${esc(l.s)}</div>`).join('');
+  const A = $('actions'); A.innerHTML = '';
+  const btn = (label, sub, on, opts) => { const b = document.createElement('button'); b.innerHTML = esc(label) + (sub ? `<small>${esc(sub)}</small>` : ''); if (opts && opts.primary) b.classList.add('primary'); if (opts && opts.wide) b.classList.add('wide'); b.disabled = !on; b.onclick = () => { AUDIO.resume(); on && opts && opts.fn && opts.fn(); }; A.appendChild(b); return b; };
+  if (S.phase === 'placement') { const d = document.createElement('div'); d.style.cssText = 'grid-column:1/-1;text-align:center;font-size:14px;letter-spacing:.06em;color:var(--paper);padding:12px 0'; d.textContent = C.encounter.placeHint; A.appendChild(d); }
+  if (S.phase === 'play') {
+    const here = g.rooms[S.player];
+    if (L.enact) btn(C.ui.enact, C.ui.enactSub, true, { primary: true, wide: true, fn: () => doAct({ type: 'enact' }) });
+    else if (here.kind === 'ritual') btn(C.ui.ritualHere, '', false, { wide: true });
+    if (L.take) btn(fmt(C.ui.take, { item: L.takeKind === 'ward' ? C.ward.name : C.items[L.take].name }), '', true, { primary: true, wide: true, fn: () => confirmTake(L) });
+    if (here.kind !== 'ritual') btn(S.searched[S.player] ? C.ui.searched : (S.threat === S.player ? C.ui.itIsHere : C.ui.search), L.search ? fmt(C.ui.searchSub, { k: S.k, s: S.k === 1 ? '' : 's' }) : '', L.search, { fn: () => doAct({ type: 'search' }) });
+    btn(C.ui.listen, C.ui.listenSub, L.listen, { fn: () => doAct({ type: 'listen' }) });
+  }
+}
+function esc(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+function confirmTake(L) {
+  if (L.takeKind === 'ward') { doAct({ type: 'take' }); return; }
+  const S = g.S; showModal({ title: C.take.confirmTitle, html: `<p>${esc(fmt(C.take.confirmBody, { item: C.items[L.take].name, k: S.k + TUNING.K_PER_TAKE }))}</p>`,
+    buttons: [{ label: C.take.no, fn: hideModal }, { label: C.take.yes, primary: true, fn: () => { hideModal(); doAct({ type: 'take' }); } }] });
+}
+function tryMove(room) {
+  const S = g.S, L = g.legal();
+  if (!L.move.includes(room)) { if (g.rooms[room].kind === 'ritual' && g.rooms[S.player].adj.includes(room)) { pushLog(C.moves.locked); refresh(); } return; }
+  if (S.threat === room && (S.heard || ui.showThreat)) { showModal({ title: C.moves.intoIt.title, html: `<p>${esc(C.moves.intoIt.body)}</p>`, buttons: [{ label: C.moves.intoIt.no, fn: hideModal }, { label: C.moves.intoIt.yes, fn: () => { hideModal(); doAct({ type: 'move', room }); } }] }); return; }
+  doAct({ type: 'move', room });
+}
+function panOf(room) { const b = RENDER.box(g.rooms[room]), p = RENDER.box(g.rooms[g.S.player]); return Math.max(-1, Math.min(1, ((b.x - p.x) / RENDER.W) * 2.2)); }
+
+function doAct(a) {
+  const events = g.act(a); ui.showThreat = false; ui.showPath = false;
+  const queue = []; // modals to show in order after immediate effects
+  for (const e of events) {
+    switch (e.type) {
+      case 'illegal': if (e.why === 'locked') pushLog(C.moves.locked); break;
+      case 'moved': AUDIO.step(); setFlavor(e.room, e.first); break;
+      case 'note': AUDIO.rustle(); pushLog(C.search.nothing); queue.push(() => showModal({ title: C.notes.foundTitle[e.tier], html: `<div class="paper t${e.tier}">${esc(e.text)}</div>`, buttons: [{ label: '…', primary: true, fn: hideModal }] })); break;
+      case 'found': AUDIO.rustle(); pushLog(e.kind === 'ward' ? C.ward.found[e.room] : C.items[e.item].found, 'found'); break;
+      case 'took': AUDIO.reward(); pushLog(C.items[e.item].take + ' ' + C.take.reward[e.n - 1]); setTier(e.tier); AUDIO.setTier(e.tier); SEIS.spike += 0.5; break;
+      case 'tookWard': AUDIO.chalk(); pushLog(C.take.ward); break;
+      case 'wakes': pushLog(C.search.wakes); AUDIO.breath(); break;
+      case 'threatMoved': SEIS.spike += 0.25 + 0.15 * e.walked.length; if (e.walked.length) { const d = g.dist(e.to, g.S.player); if (d > TUNING.HEARING_RADIUS) AUDIO.distant(panOf(e.to), Math.min(1, e.walked.length / 4)); } pushLog(C.search.stirs[Math.min(5, g.S.taken.length)]); break;
+      case 'heard': if (e.d <= 1) { pushLog(C.hearing.d1); AUDIO.near(panOf(e.room)); } else { pushLog(fmt(C.hearing.d2, { room: C.rooms[e.toward].name })); AUDIO.distant(panOf(e.room), 1); } break;
+      case 'listen': ui.showThreat = true; ui.showPath = true; AUDIO.breath(); setTimeout(() => AUDIO.distant(panOf(e.room), Math.min(1, 3 / Math.max(1, e.d))), 700);
+        pushLog(e.d <= TUNING.HEARING_RADIUS ? C.hearing.listenNear : fmt(C.hearing.listenFar, { room: C.rooms[e.room].name })); break;
+      case 'encounter': AUDIO.shatter(); queue.push(() => showModal({ title: C.encounter.withWard.title, html: `<p>${esc(C.encounter.withWard.body)}</p>`, buttons: [{ label: C.encounter.withWard.button, primary: true, fn: hideModal }] })); break;
+      case 'placed': pushLog(fmt(C.encounter.placed, { room: C.rooms[e.room].name })); AUDIO.distant(panOf(e.room), 1); break;
+      case 'death': AUDIO.death(); queue.push(showDeath); break;
+      case 'won': AUDIO.win(); queue.push(showWin); break;
+    }
+  }
+  refresh();
+  let i = 0; const next = () => { if (i < queue.length) { const f = queue[i++]; f(); modalThen = next; } else modalThen = null; }; next();
+}
+let modalThen = null;
+function showModal(o) {
+  const card = $('card'); card.innerHTML = (o.title ? `<h1 class="${o.titleClass || ''}">${esc(o.title)}</h1>` : '') + (o.html || '') + '<div class="row"></div>';
+  const row = card.querySelector('.row'); for (const b of o.buttons) { const el = document.createElement('button'); el.textContent = b.label; if (b.primary) el.classList.add('primary'); el.onclick = () => { AUDIO.init(); AUDIO.resume(); b.fn(); }; row.appendChild(el); }
+  $('modal').hidden = false;
+}
+function hideModal() { $('modal').hidden = true; const f = modalThen; modalThen = null; if (f) f(); }
+function showDeath() {
+  const S = g.S, n = S.taken.length;
+  const acts = n ? '<ol>' + S.taken.map(it => `<li>${esc(fmt(C.encounter.death.acts, { item: C.items[it].name, room: C.rooms[TUNING.ROOMS.find(r => r.item === it).id].name }))}</li>`).join('') + '</ol>' : `<p>${esc(C.encounter.death.none)}</p>`;
+  showModal({ title: C.encounter.death.title, html: `<p>${esc(fmt(C.encounter.death.body, { n, s: n === 1 ? '' : 's' }))}</p>${acts}<p class="muted">${esc(fmt(C.encounter.death.stats, { turn: S.turn, c: n }))}</p>`,
+    buttons: [{ label: C.encounter.death.again, primary: true, fn: () => { hideModal(); if (AUDIO.master) AUDIO.master.gain.setTargetAtTime(0.9, AUDIO.now(), 0.5); newGame(); } }] });
+}
+function showWin() {
+  const S = g.S; let best = ui.best; if (!best || S.turn < best) { best = S.turn; ui.best = best; try { localStorage.setItem('unsealing.best', String(best)); } catch (e) {} }
+  const share = fmt(C.win.share, { turns: S.turn, wards: S.wards, s: S.wards === 1 ? '' : 's' });
+  showModal({ title: C.win.title, html: `<p>${esc(C.win.body)}</p><div class="stat"><span>${esc(C.win.turns)}</span><span>${S.turn}</span></div><div class="stat"><span>${esc(C.win.wards)}</span><span>${S.wards}</span></div><div class="stat"><span>${esc(C.win.best)}</span><span>${best}</span></div><p class="muted" style="margin-top:10px">${esc(share)}</p>`,
+    buttons: [{ label: C.win.copy, fn: function () { try { navigator.clipboard.writeText(share); } catch (e) {} const b = $('card').querySelector('.row button'); if (b) b.textContent = C.win.copied; } }, { label: C.win.again, primary: true, fn: () => { hideModal(); if (AUDIO.master) AUDIO.master.gain.setTargetAtTime(0.9, AUDIO.now(), 0.5); newGame(); } }] });
+}
+function showTitle() {
+  showModal({ title: C.title, titleClass: 'title', html: `<p class="muted" style="text-align:center">${esc(C.tagline)}</p>` + C.intro.map(p => `<p>${esc(p)}</p>`).join('') + (ui.best ? `<p class="muted">${esc(C.win.best)}: ${ui.best}</p>` : ''),
+    buttons: [{ label: C.begin, primary: true, fn: () => { AUDIO.init(); AUDIO.resume(); hideModal(); newGame(); } }] });
+}
+
+// input
+$('map').addEventListener('click', e => {
+  if (!g || !$('modal').hidden) return; const r = $('map').getBoundingClientRect(); const id = RENDER.roomAt(e.clientX - r.left, e.clientY - r.top); if (!id) return; AUDIO.resume();
+  if (g.S.phase === 'placement') { if (g.legal().place.includes(id)) doAct({ type: 'place', room: id }); return; }
+  if (g.S.phase === 'play') tryMove(id);
+});
+window.addEventListener('keydown', e => { if (!g || !$('modal').hidden) { if (e.key === 'Enter' || e.key === ' ') { const b = $('card') && $('card').querySelector('button.primary'); if (b && !$('modal').hidden) { e.preventDefault(); b.click(); } } return; }
+  const L = g.legal(); if (e.key === 's' && L.search) doAct({ type: 'search' }); else if (e.key === 'l' && L.listen) doAct({ type: 'listen' }); else if (e.key === 't' && L.take) confirmTake(L); else if (e.key === 'e' && L.enact) doAct({ type: 'enact' }); });
+window.addEventListener('resize', () => { RENDER.resize(); SEIS.resize(); });
+if (window.ResizeObserver) new ResizeObserver(() => RENDER.resize()).observe($('mapWrap'));
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+// boot
+window.__unsealing = { get g() { return g; }, act: a => doAct(a), tryMove, setTier: t => { setTier(t, true); AUDIO.setTier(t); } };
+RENDER.init($('map')); SEIS.init($('seis'));
+g = createEngine(TUNING, C); g.S.phase = 'title'; refresh(); $('roomName').textContent = ''; $('flavor').textContent = ''; $('actions').innerHTML = '';
+let seisAcc = 0, lastF = performance.now();
+(function loop(now) { requestAnimationFrame(loop); const dt = now - lastF; lastF = now; seisAcc += dt; while (seisAcc > 40) { SEIS.tick(); seisAcc -= 40; } RENDER.draw(g, ui); SEIS.draw(RENDER.pal); })(performance.now());
+showTitle();
+})();
+</script>
+</body>
+</html>
