@@ -1,6 +1,6 @@
 # Solutions Journalism Briefing System: Milestone 1 Plan
 
-Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; Milestone 1b built**
+Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; M1b built; M2 built 2026-11-02**
 
 This document covers Milestone 1: the implementation plan, the source access report, the schema, and the Fly
 deployment plan. The Milestone 1b skeleton implements §3 and §5; `docs/DEPLOY.md` is the Fly runbook.
@@ -359,6 +359,20 @@ in the same Alembic migration chain. No Redis. Queues: `pipeline` (concurrency 1
 * Alert email to `ALERT_EMAIL` when the deadline is missed, the evaluator rejection rate goes over a threshold, or an adapter fails on 2 consecutive days.
 
 ---
+
+### M2 implementation notes (2026-11-02)
+* Adapters: `nws` (SAME → county FIPS; marine and vague products skipped; one problem per event × office × day),
+  `openfema` (one problem per declaration; county `000` → state FIPS; incident falls back to title keywords when
+  coded "Other"), `cdc_mmwr` / `cdc_outbreaks` (archive feeds → lookback window + title dedupe; places tagged only
+  from explicit "X County, State" or full state names, else national). CDC HAN: no adapter (no live feed).
+* Classification order: source coding → keyword rules → Claude (`CLASSIFIER_MODEL`, default `claude-haiku-5-5`,
+  structured output whose schema enumerates the taxonomy ids) only when `ANTHROPIC_API_KEY` is set. An LLM outage
+  leaves items unclassified; it never fails ingest.
+* Scores: severity from the source's own coding; novelty = 1.0 on the event's first day, halving every 2 days;
+  locality = 1/(1+log2(footprint)), statewide = 20 counties, national = 0.
+* Not yet: cross-source clustering (needs embeddings, M4), county inference from free text beyond exact
+  gazetteer matches, GDELT/news RSS/state health/BLS/Census/EIA adapters (pending keys and terms review).
+* Live check: one run pulled 139 items → 68 problems in ~4 s; 1 left unclassified (would go to the LLM fallback).
 
 ## 6. Milestones (each demonstrated on staging first, then stop for review)
 

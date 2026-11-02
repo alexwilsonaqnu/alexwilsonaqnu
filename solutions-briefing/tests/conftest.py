@@ -27,6 +27,7 @@ os.environ["DRY_RUN"] = "true"
 os.environ["ADMIN_TOKEN"] = "test-admin-token"
 os.environ.pop("LOGFIRE_TOKEN", None)
 os.environ.pop("POSTMARK_SERVER_TOKEN", None)
+os.environ.pop("ANTHROPIC_API_KEY", None)  # tests never call Claude
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -48,6 +49,14 @@ def database():
 
 
 @pytest.fixture(autouse=True)
+def no_live_sources(monkeypatch):
+    """No test touches the network: the adapter registry is empty unless a test installs fakes."""
+    import solbrief.adapters
+
+    monkeypatch.setattr(solbrief.adapters, "ADAPTERS", ())
+
+
+@pytest.fixture(autouse=True)
 def clean_tables(database):
     yield
     from sqlalchemy import text
@@ -55,4 +64,4 @@ def clean_tables(database):
     from solbrief.db import get_engine
 
     with get_engine().begin() as conn:
-        conn.execute(text("TRUNCATE runs, procrastinate_jobs CASCADE"))
+        conn.execute(text("TRUNCATE runs, problems, procrastinate_jobs CASCADE"))

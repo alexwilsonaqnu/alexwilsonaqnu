@@ -15,7 +15,5 @@ def test_worker_executes_enqueued_daily_run():
     app.run_worker(queues=["pipeline"], wait=False, install_signal_handlers=False)
     assert is_complete(local_today(), dry_run=True)
     with get_engine().connect() as conn:
-        status = conn.execute(
-            text("SELECT status FROM procrastinate_jobs WHERE task_name='daily_run'")
-        ).scalar()
+        status = conn.execute(text("SELECT status FROM procrastinate_jobs WHERE task_name='daily_run'")).scalar()
     assert status == "succeeded"

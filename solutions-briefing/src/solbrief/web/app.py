@@ -40,9 +40,7 @@ def create_app() -> FastAPI:
                 revision = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
         except Exception as exc:
             return JSONResponse({"ok": False, "db": "error", "detail": type(exc).__name__}, status_code=503)
-        return JSONResponse(
-            {"ok": True, "db": "ok", "schema_revision": revision, "env": get_settings().app_env}
-        )
+        return JSONResponse({"ok": True, "db": "ok", "schema_revision": revision, "env": get_settings().app_env})
 
     @app.get("/", response_class=HTMLResponse)
     def home() -> str:

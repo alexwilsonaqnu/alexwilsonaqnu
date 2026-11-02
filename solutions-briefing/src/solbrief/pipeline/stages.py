@@ -3,8 +3,8 @@
 Each stage is a plain function `(StageContext) -> StageResult`. Stages read inputs from Postgres and
 write outputs with upserts keyed on run_date, so any stage can be re-run for any date.
 
-Milestone 1b: every stage is a registered stub that reports `skipped` — the orchestration,
-idempotency, tracing and run accounting are real; stage bodies arrive in M2–M5.
+Stages not yet built are registered stubs that report `skipped`; real stages replace them as each
+milestone lands (ingest: M2).
 """
 
 from __future__ import annotations
@@ -58,6 +58,8 @@ def stage(name: str) -> Callable[[StageFn], StageFn]:
 
 
 def get_stage(name: str) -> StageFn:
+    if name not in _REGISTRY:
+        raise KeyError(f"stage {name!r} is not registered")
     return _REGISTRY[name]
 
 
@@ -68,8 +70,8 @@ def _not_implemented(milestone: str) -> StageFn:
     return fn
 
 
+# Implemented stages register themselves with @stage when their module is imported (see daily.py).
 for _name, _milestone in {
-    "ingest": "M2",
     "library_research": "M3",
     "verify": "M3",
     "match": "M4",

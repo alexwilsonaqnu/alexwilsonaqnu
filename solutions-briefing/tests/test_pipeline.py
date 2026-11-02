@@ -24,7 +24,8 @@ def test_daily_run_records_every_stage_with_one_trace():
     trace_ids = {r.trace_id for r in rows.values()}
     assert len(trace_ids) == 1 and None not in trace_ids, "one trace per run"
     assert rows["run_report"].status == RunStatus.succeeded
-    assert rows["ingest"].status == RunStatus.skipped  # stub until M2
+    assert rows["ingest"].status == RunStatus.succeeded  # no sources configured in tests
+    assert rows["library_research"].status == RunStatus.skipped  # stub until M3
 
 
 def test_completed_run_is_not_repeated_unless_forced():

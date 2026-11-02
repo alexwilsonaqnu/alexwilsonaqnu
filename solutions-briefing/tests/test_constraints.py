@@ -83,13 +83,8 @@ def test_dry_run_briefing_can_never_be_marked_sent():
 
 def test_agents_may_only_propose_taxonomy_changes():
     with pytest.raises(IntegrityError):
-        _exec(
-            "INSERT INTO taxonomy_changes (change_type, class_id, actor) "
-            "VALUES ('accept', 'housing', 'agent')"
-        )
-    _exec(
-        "INSERT INTO taxonomy_changes (change_type, class_id, actor) VALUES ('propose', 'housing', 'agent')"
-    )
+        _exec("INSERT INTO taxonomy_changes (change_type, class_id, actor) VALUES ('accept', 'housing', 'agent')")
+    _exec("INSERT INTO taxonomy_changes (change_type, class_id, actor) VALUES ('propose', 'housing', 'agent')")
     _exec(
         "INSERT INTO taxonomy_changes (change_type, class_id, actor) "
         "VALUES ('accept', 'housing', 'human:editor@knightlab')"

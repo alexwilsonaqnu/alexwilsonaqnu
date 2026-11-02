@@ -47,6 +47,9 @@ class Settings(BaseSettings):
 
     card_reverify_days: int = Field(180, ge=1)
 
+    # Model per stage (plan §4.1: Haiku-class for classification; strongest model for draft/verify/evaluate)
+    classifier_model: str = "claude-haiku-5-5"
+
     @property
     def effective_dry_run(self) -> bool:
         """Staging can never send; other envs honour DRY_RUN."""

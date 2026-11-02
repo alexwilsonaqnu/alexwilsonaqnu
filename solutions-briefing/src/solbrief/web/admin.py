@@ -1,4 +1,4 @@
-"""Admin API — bearer ADMIN_TOKEN. Trigger a run, check run status, re-run a stage, dry-run.
+"""Admin API — bearer ADMIN_TOKEN. Trigger a run, check run status, re-run a stage, inspect problems.
 
 If ADMIN_TOKEN is unset the admin API is disabled (503), never open.
 """
@@ -14,7 +14,7 @@ from sqlalchemy import select
 
 from solbrief.config import get_settings
 from solbrief.db import session_scope
-from solbrief.db.models import Run
+from solbrief.db.models import Problem, Run
 from solbrief.pipeline.stages import STAGE_ORDER
 
 
@@ -55,9 +55,7 @@ async def trigger_run(req: RunRequest) -> dict:
             run_date=run_date.isoformat(), dry_run=dry_run, force=req.force
         )
     except AlreadyEnqueued:
-        raise HTTPException(
-            409, f"a daily run for {run_date} (dry_run={dry_run}) is already queued"
-        ) from None
+        raise HTTPException(409, f"a daily run for {run_date} (dry_run={dry_run}) is already queued") from None
     return {"job_id": job_id, "date": str(run_date), "dry_run": dry_run}
 
 
@@ -89,6 +87,45 @@ def run_status(run_date: dt.date) -> dict:
                     "trace_id": r.trace_id,
                     "started_at": r.started_at.isoformat() if r.started_at else None,
                     "finished_at": r.finished_at.isoformat() if r.finished_at else None,
+                }
+                for r in rows
+            ],
+        }
+
+
+@router.get("/problems/{run_date}")
+def problems(run_date: dt.date, limit: int = 100, class_id: str | None = None, fips: str | None = None) -> dict:
+    """A day's problem feed, ranked by severity then locality (the matcher's ranking arrives in M4)."""
+    from solbrief.geo import describe
+
+    with session_scope() as s:
+        q = select(Problem).where(Problem.run_date == run_date)
+        if class_id:
+            q = q.where(Problem.problem_class_ids.any(class_id))
+        if fips:
+            q = q.where(Problem.fips.any(fips))
+        q = q.order_by(Problem.severity.desc().nulls_last(), Problem.locality_score.desc()).limit(min(limit, 500))
+        rows = s.scalars(q).all()
+        return {
+            "date": str(run_date),
+            "count": len(rows),
+            "problems": [
+                {
+                    "id": str(r.id),
+                    "cluster_id": str(r.cluster_id),
+                    "title": r.title,
+                    "summary": r.summary,
+                    "item_type": r.item_type.value,
+                    "source": r.source_adapter,
+                    "classes": r.problem_class_ids,
+                    "places": [describe(f) for f in r.fips[:10]],
+                    "n_fips": len(r.fips),
+                    "is_national": r.is_national,
+                    "severity": r.severity,
+                    "novelty": r.novelty,
+                    "locality": r.locality_score,
+                    "source_urls": r.source_urls[:5],
+                    "first_seen": r.first_seen.isoformat(),
                 }
                 for r in rows
             ],

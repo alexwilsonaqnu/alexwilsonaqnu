@@ -19,6 +19,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from solbrief.db import get_engine, session_scope
 from solbrief.db.models import Run, RunStatus
+from solbrief.pipeline import ingest as _ingest  # noqa: F401  (registers the ingest stage)
 from solbrief.pipeline import stages
 from solbrief.pipeline.stages import STAGE_ORDER, StageContext, StageResult
 from solbrief.telemetry import current_trace_id
@@ -86,9 +87,7 @@ def run_stage(name: str, run_date: date, dry_run: bool) -> StageResult:
         except Exception as exc:  # recorded, not swallowed: run becomes partial
             log.exception("stage %s failed", name)
             logfire.exception("stage {stage} failed", stage=name)
-            result = StageResult(
-                status=RunStatus.failed, errors=[{"type": type(exc).__name__, "msg": str(exc)}]
-            )
+            result = StageResult(status=RunStatus.failed, errors=[{"type": type(exc).__name__, "msg": str(exc)}])
     record_stage(run_date, name, dry_run, trace_id, result)
     return result
 
@@ -98,9 +97,7 @@ def _run_report(run_date: date, dry_run: bool) -> StageResult:
         rows = s.scalars(
             select(Run).where(Run.run_date == run_date, Run.dry_run == dry_run, Run.stage != "run_report")
         ).all()
-    by_stage = {
-        r.stage: {"status": r.status.value, "counts": r.counts, "errors": len(r.errors)} for r in rows
-    }
+    by_stage = {r.stage: {"status": r.status.value, "counts": r.counts, "errors": len(r.errors)} for r in rows}
     failed = [r.stage for r in rows if r.status == RunStatus.failed]
     return StageResult(
         status=RunStatus.partial if failed else RunStatus.succeeded,
@@ -114,9 +111,7 @@ stages.stage("run_report")(lambda ctx: _run_report(ctx.run_date, ctx.dry_run))
 def report_status(run_date: date, dry_run: bool) -> RunStatus | None:
     with session_scope() as s:
         return s.scalar(
-            select(Run.status).where(
-                Run.run_date == run_date, Run.dry_run == dry_run, Run.stage == "run_report"
-            )
+            select(Run.status).where(Run.run_date == run_date, Run.dry_run == dry_run, Run.stage == "run_report")
         )
 
 

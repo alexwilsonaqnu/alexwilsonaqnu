@@ -114,9 +114,7 @@ class ProblemClass(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="active")
     introduced_in_version: Mapped[int | None] = mapped_column(ForeignKey("taxonomy_versions.id"))
     deprecated_in_version: Mapped[int | None] = mapped_column(ForeignKey("taxonomy_versions.id"))
-    __table_args__ = (
-        CheckConstraint("status IN ('active','proposed','deprecated')", name="problem_class_status"),
-    )
+    __table_args__ = (CheckConstraint("status IN ('active','proposed','deprecated')", name="problem_class_status"),)
 
 
 class TaxonomyChange(Base):
@@ -137,9 +135,7 @@ class TaxonomyChange(Base):
             "change_type IN ('propose','accept','reject','deprecate','relabel_display')",
             name="taxonomy_change_type",
         ),
-        CheckConstraint(
-            "actor LIKE 'human:%' OR change_type = 'propose'", name="taxonomy_agents_only_propose"
-        ),
+        CheckConstraint("actor LIKE 'human:%' OR change_type = 'propose'", name="taxonomy_agents_only_propose"),
     )
 
 
@@ -266,9 +262,7 @@ class CardLimitation(Base):
 
 class CardVersion(Base):
     __tablename__ = "card_versions"
-    card_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("solution_cards.id", ondelete="CASCADE"), primary_key=True
-    )
+    card_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("solution_cards.id", ondelete="CASCADE"), primary_key=True)
     version: Mapped[int] = mapped_column(Integer, primary_key=True)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
     reason: Mapped[str | None] = mapped_column(Text)
@@ -306,18 +300,12 @@ class Expert(Base):
 
 class CardExpert(Base):
     __tablename__ = "card_experts"
-    card_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("solution_cards.id", ondelete="CASCADE"), primary_key=True
-    )
-    expert_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("experts.id", ondelete="CASCADE"), primary_key=True
-    )
+    card_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("solution_cards.id", ondelete="CASCADE"), primary_key=True)
+    expert_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("experts.id", ondelete="CASCADE"), primary_key=True)
     relation: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (
-        CheckConstraint(
-            "relation IN ('evaluator_author','practitioner','critic')", name="card_expert_relation"
-        ),
+        CheckConstraint("relation IN ('evaluator_author','practitioner','critic')", name="card_expert_relation"),
     )
 
 
@@ -347,9 +335,7 @@ class Reader(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="pending")
     created_at: Mapped[datetime] = _now()
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    __table_args__ = (
-        CheckConstraint("status IN ('pending','active','unsubscribed','bounced')", name="reader_status"),
-    )
+    __table_args__ = (CheckConstraint("status IN ('pending','active','unsubscribed','bounced')", name="reader_status"),)
 
 
 class Briefing(Base):
@@ -380,9 +366,7 @@ class Feedback(Base):
     reader_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("readers.id", ondelete="CASCADE"))
     briefing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("briefings.id", ondelete="SET NULL"))
     card_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("solution_cards.id", ondelete="CASCADE"))
-    signal: Mapped[FeedbackSignal] = mapped_column(
-        _pg_enum(FeedbackSignal, "feedback_signal"), nullable=False
-    )
+    signal: Mapped[FeedbackSignal] = mapped_column(_pg_enum(FeedbackSignal, "feedback_signal"), nullable=False)
     note: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
 

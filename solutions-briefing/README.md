@@ -9,9 +9,14 @@ source by code, not by a model. See `docs/PLAN.md` §2.
 
 ## Status
 
-Milestone 1b — deployable skeleton. Web (health + admin API), worker, scheduler, full schema with
-migrations, Postgres job queue, OpenTelemetry tracing (Logfire), CI/CD. Pipeline stages are registered
-stubs that report `skipped`; they are filled in M2–M5.
+**Milestone 2 — problem ingest.** The daily run pulls NWS alerts, OpenFEMA disaster declarations, and CDC
+MMWR + outbreak feeds; geotags them to county/state FIPS; classifies them into taxonomy v1 (source coding →
+keyword rules → optional Claude fallback constrained to the taxonomy); clusters duplicates; scores severity,
+novelty and locality; and writes `problems`. Inspect with `GET /admin/problems/{date}`.
+
+Built on the M1b skeleton (web, worker, scheduler, schema + migrations, Postgres queue, Logfire tracing, CI/CD).
+Later stages (library, verifier, matcher, writer, evaluator, delivery) are registered stubs that report
+`skipped` until M3–M5.
 
 ## Layout
 
@@ -19,7 +24,11 @@ stubs that report `skipped`; they are filled in M2–M5.
 src/solbrief/
   config.py          settings from env (Fly secrets)
   db/                SQLAlchemy models + Alembic migrations (schema: docs/PLAN.md §3)
-  pipeline/          daily orchestrator + stage registry (each stage idempotent per date)
+  adapters/          problem sources: nws, openfema, cdc_rss (common SourceAdapter + polite HTTP)
+  geo/               FIPS states/counties (Census gazetteer) and deterministic place tagging
+  taxonomy/          frozen v1.yaml (seeded by migration 0002); changes via taxonomy_changes only
+  classify.py        rules first, optional Claude fallback (structured output limited to taxonomy ids)
+  pipeline/          daily orchestrator + stage registry; ingest.py is stage 1 (each stage idempotent per date)
   queue.py           procrastinate tasks (web enqueues, worker executes)
   scheduler.py       timezone-aware cron (04:30 America/Chicago) — only enqueues
   alerts.py          deadline alert email
@@ -55,3 +64,4 @@ All routes need `Authorization: Bearer $ADMIN_TOKEN`.
 | `POST /admin/runs` `{"date"?, "dry_run"?, "force"?}` | enqueue a daily run (staging is always dry-run) |
 | `GET /admin/runs/{date}` | per-stage status, counts, errors, trace id |
 | `POST /admin/runs/{date}/stages/{stage}/rerun` | re-run one stage |
+| `GET /admin/problems/{date}?class_id=&fips=&limit=` | the day's problem feed, ranked by severity then locality |

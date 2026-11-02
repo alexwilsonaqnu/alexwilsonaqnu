@@ -22,7 +22,11 @@ def test_healthz_reports_schema_revision(client):
     r = client.get("/healthz")
     assert r.status_code == 200
     body = r.json()
-    assert body["ok"] is True and body["schema_revision"] == "0001"
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()
+    assert body["ok"] is True and body["schema_revision"] == head
 
 
 def test_home_page(client):
@@ -30,9 +34,7 @@ def test_home_page(client):
     assert r.status_code == 200 and "Solutions Briefing" in r.text
 
 
-@pytest.mark.parametrize(
-    "headers", [{}, {"Authorization": "Bearer wrong"}, {"Authorization": "test-admin-token"}]
-)
+@pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer wrong"}, {"Authorization": "test-admin-token"}])
 def test_admin_requires_bearer_token(client, headers):
     assert client.get("/admin/runs/2026-11-02", headers=headers).status_code == 401
 
@@ -74,3 +76,38 @@ def test_run_status_lists_stages(client):
     assert r.status_code == 200
     stages = {s["stage"] for s in r.json()["stages"]}
     assert "run_report" in stages and "ingest" in stages
+
+
+def test_admin_problems_lists_ranked_feed(client):
+    import uuid
+    from datetime import UTC, datetime
+
+    from solbrief.db import session_scope
+    from solbrief.db.models import ItemType, Problem
+
+    now = datetime(2026, 11, 2, 12, tzinfo=UTC)
+    with session_scope() as s:
+        for title, sev, fips in (("Minor thing", 0.25, ["17031"]), ("Tornado Warning", 1.0, ["40033"])):
+            s.add(
+                Problem(
+                    run_date=now.date(),
+                    cluster_id=uuid.uuid4(),
+                    title=title,
+                    source_adapter="nws",
+                    first_seen=now,
+                    last_seen=now,
+                    severity=sev,
+                    novelty=1.0,
+                    locality_score=1.0,
+                    fips=fips,
+                    problem_class_ids=["tornadoes-severe-storms"],
+                    item_type=ItemType.service,
+                )
+            )
+    r = client.get("/admin/problems/2026-11-02", headers=AUTH)
+    assert r.status_code == 200
+    body = r.json()
+    assert [p["title"] for p in body["problems"]] == ["Tornado Warning", "Minor thing"]
+    assert body["problems"][0]["places"] == ["Cotton County, OK"]
+    only_cook = client.get("/admin/problems/2026-11-02?fips=17031", headers=AUTH).json()
+    assert [p["title"] for p in only_cook["problems"]] == ["Minor thing"]
