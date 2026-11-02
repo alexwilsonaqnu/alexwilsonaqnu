@@ -1,0 +1,63 @@
+[project]
+name = "solbrief"
+version = "0.1.0"
+description = "Solutions journalism daily briefing system (Knight Lab, Northwestern Medill)"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.32",
+  "jinja2>=3.1",
+  "pydantic>=2.9",
+  "pydantic-settings>=2.6",
+  "sqlalchemy>=2.0.36",
+  "alembic>=1.14",
+  "psycopg[binary,pool]>=3.2",
+  "pgvector>=0.3.6",
+  "procrastinate>=3.10,<4",
+  "apscheduler>=3.10,<4",
+  "httpx>=0.27",
+  "logfire[fastapi,psycopg,httpx]>=5.0",
+]
+
+[project.optional-dependencies]
+agents = [
+  "anthropic>=0.40",
+  "claude-agent-sdk>=0.2",
+  "voyageai>=0.3",
+]
+dev = [
+  "pytest>=8.3",
+  "ruff>=0.8",
+  "mypy>=1.13",
+]
+
+[project.scripts]
+solbrief = "solbrief.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/solbrief"]
+
+[tool.ruff]
+line-length = 110
+extend-exclude = [".venv"]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S"]
+ignore = ["S101"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/solbrief/db/migrations/versions/*" = ["E501"]
+"tests/*" = ["S105", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "evals"]
+addopts = "-q"
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

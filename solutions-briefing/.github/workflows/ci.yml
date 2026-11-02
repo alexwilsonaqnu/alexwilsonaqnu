@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_call:   # reused by deploy.yml so main is never deployed without green tests
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.32"
+      - name: Install
+        run: uv sync --frozen --extra dev
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check src tests --exclude src/solbrief/db/migrations/versions
+      - name: Migrations apply cleanly and match the models
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+        run: |
+          psql "$DATABASE_URL" -c "CREATE DATABASE solbrief_ci"
+          export DATABASE_URL=postgresql://postgres:postgres@localhost:5432/solbrief_ci
+          uv run alembic upgrade head
+          uv run alembic check
+          uv run alembic downgrade base
+          uv run alembic upgrade head
+      - name: Tests
+        run: uv run pytest tests
+      - name: Evals (matcher recall@5, verifier traps, evaluator cases)
+        # The eval suites land in M3–M5; this step runs them as soon as they exist and fails the PR on regression.
+        run: |
+          if ls evals/test_*.py >/dev/null 2>&1; then uv run pytest evals; else echo "no eval suites yet (M3+)"; fi
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Image builds
+        run: docker build -t solbrief:ci .

@@ -1,13 +1,30 @@
 # Solutions Journalism Briefing System: Milestone 1 Plan
 
-Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **awaiting review (Milestone 1 gate)**
+Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; Milestone 1b built**
 
 This document covers Milestone 1: the implementation plan, the source access report, the schema, and the Fly
-deployment plan. No application code has been written. The open questions in §0 block Milestone 1b.
+deployment plan. The Milestone 1b skeleton implements §3 and §5; `docs/DEPLOY.md` is the Fly runbook.
 
 ---
 
-## 0. Decisions I need from you
+## 0. Decisions (resolved 2026-11-01)
+
+| # | Decision |
+|---|---|
+| Q1 | **New repo** for this project (this one). |
+| Q3 | **Postmark** (Pro): Transactional stream for alerts and replies, Broadcast stream for daily briefings, inbound webhook with `StrippedTextReply`. |
+| Q4 | **Pydantic Logfire** for OTel traces. |
+| Q5 | **Voyage AI `voyage-3.5`** embeddings (1024-dim). |
+| Q2, Q6–Q12 | Recommendations accepted: SJN partnership request (federal clearinghouses in the meantime); separate staging MPG cluster; Knight Lab curates the golden set and registers API keys; run 04:30 / deadline 06:30 America/Chicago; pilot of 20–50 reporters; hybrid Agent SDK + Messages API; FastAPI + Jinja2 + HTMX. |
+
+**Changes made while building M1b:**
+* **Scheduler is APScheduler, not supercronic.** The container couldn't fetch and checksum the supercronic binary,
+  and a pure-Python, timezone-aware cron in the `scheduler` process group is equivalent: it only enqueues, and
+  tests cover its DST behavior. It runs as `python -m solbrief.scheduler`.
+* Telemetry is exported with `LOGFIRE_TOKEN` rather than generic `OTEL_EXPORTER_OTLP_*` variables. The spans are standard OTel.
+* Base image comes from the AWS ECR mirror of Docker Official Images, because Docker Hub rate-limits anonymous pulls.
+
+<details><summary>Original open questions (for the record)</summary>
 
 | # | Question | My recommendation |
 |---|---|---|
@@ -23,6 +40,8 @@ deployment plan. No application code has been written. The open questions in §0
 | Q10 | Pilot list size and launch geography | 20–50 reporters, national plus 2–3 metros, so local ranking can be checked by hand. |
 | Q11 | Agent SDK for every LLM call, or a hybrid? | Hybrid (§2.4). |
 | Q12 | Web framework | **FastAPI + Jinja2 + HTMX**: server-rendered with no JS build; one process serves the UI, webhook and admin API. |
+
+</details>
 
 ---
 
@@ -87,7 +106,7 @@ re-read from a campus network. I did not work around any block, and I will not b
                 └──────────────────────────────────────────────────────────┘
  web (Starlette/FastAPI): search ─► same matcher ─► writer ⇄ evaluator (mini-briefing)
  inbound email webhook ─► queue ─► worker ─► reply
- scheduler (supercronic) ─► enqueue daily_run(date)
+ scheduler (APScheduler) ─► enqueue daily_run(date)
 ```
 
 **Key design choice: deterministic code where possible, LLM only where judgment is needed.**
@@ -263,7 +282,7 @@ primary_region = "ord"
 [processes]
   web       = "uvicorn solbrief.web.app:app --host 0.0.0.0 --port 8080"
   worker    = "python -m solbrief.worker"            # procrastinate worker: pipeline stages + reply jobs
-  scheduler = "supercronic /app/ops/crontab"         # exactly 1 machine
+  scheduler = "python -m solbrief.scheduler"         # exactly 1 machine
 
 [http_service]
   processes = ["web"]
@@ -293,17 +312,18 @@ The worker and scheduler groups expose no service, so Fly Proxy never auto-stops
 
 ### 5.3 Scheduling
 
-Fly's `--schedule` machines are fuzzy (hourly, daily and so on, with no exact time), and Fly's docs say they're not for precise timing. So:
-`ops/crontab`:
-```
-CRON_TZ=America/Chicago
-30 4 * * *  python -m solbrief.cli enqueue daily-run --date today
-*/10 * * * * python -m solbrief.cli check-deadline      # alert email if today's run isn't done by DEADLINE
-0 3 * * 0   python -m solbrief.cli enqueue reverify-library
-```
+Fly's `--schedule` machines are fuzzy (hourly, daily and so on, with no exact time), and Fly's docs say they're not for precise timing.
+So the `scheduler` process group runs **APScheduler** with `CronTrigger(timezone="America/Chicago")`
+(`src/solbrief/scheduler.py`):
+
+| Job | When | Does |
+|---|---|---|
+| `daily_run` | 04:30 America/Chicago | enqueue today's run (procrastinate queueing lock: at most one queued per date) |
+| `check_deadline` | every 10 min | after 06:30, if today's run isn't complete, email `ALERT_EMAIL` (once per day) |
+| `reverify_library` | weekly (M3) | enqueue re-verification of cards older than 180 days |
+
 The scheduler only **enqueues**; all work happens on the worker. A second line of defense guards against a double-fire:
 `daily_run` takes a Postgres advisory lock keyed on the date and returns immediately if that date has already succeeded.
-(Supercronic's `CRON_TZ` support will be confirmed in M1b.)
 
 ### 5.4 Queue
 
@@ -314,7 +334,7 @@ in the same Alembic migration chain. No Redis. Queues: `pipeline` (concurrency 1
 ### 5.5 Secrets (`fly secrets set`, never committed; mirrored in `.env.example`)
 
 `DATABASE_URL`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`, `POSTMARK_SERVER_TOKEN`, `POSTMARK_INBOUND_WEBHOOK_SECRET`,
-`ADMIN_TOKEN`, `HMAC_SECRET` (feedback/unsubscribe links), `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`,
+`ADMIN_TOKEN`, `HMAC_SECRET` (feedback/unsubscribe links), `LOGFIRE_TOKEN`,
 `ALERT_EMAIL`, `OPENALEX_API_KEY`, `BLS_API_KEY`, `CENSUS_API_KEY`, `EIA_API_KEY`, `NWS_USER_AGENT`, `DRY_RUN`.
 
 ### 5.6 CI/CD (GitHub Actions)
@@ -378,7 +398,7 @@ solbrief/
   db/         # SQLAlchemy models, Alembic migrations
 skills/       # four-pillars, evidence-rubric, taxonomy, briefing-style SKILL.md
 evals/        # golden_matcher.jsonl, verifier_traps/, evaluator_cases/
-ops/          # crontab, fly.toml, fly.staging.toml, Dockerfile
+fly.toml, fly.staging.toml, Dockerfile   # repo root
 .github/workflows/
 ```
 
