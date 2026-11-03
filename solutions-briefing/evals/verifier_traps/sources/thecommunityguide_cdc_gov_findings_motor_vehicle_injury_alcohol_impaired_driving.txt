@@ -1,0 +1,55 @@
+Motor Vehicle Injury Alcohol-Impaired Driving: Ignition Interlocks
+Findings and Recommendations
+The Community Preventive Services Task Force (CPSTF) recommends the use of ignition interlocks for people convicted of alcohol-impaired driving based on evidence that they reduce re-arrest rates while the interlocks are installed.
+Public health benefits of ignition interlock interventions are currently limited by the small proportion of offenders who install interlocks in their vehicles. More widespread and sustained use of interlocks among this population could have a greater impact on alcohol-related crashes.
+The full CPSTF Finding and Rationale Statement and supporting documents for Reducing Alcohol-Impaired Driving: Ignition Interlocks are available in The Community Guide Collection on CDC Stacks.
+Intervention
+An ignition interlock is a device that can be installed in a motor vehicle to prevent a driver who has a blood alcohol concentration (BAC) above a specified level (usually 0.02% to 0.04%) from driving the vehicle. Interlocks are most often installed in vehicles of people who have been convicted of alcohol-impaired driving to give them an opportunity to drive legally.
+About The Systematic Review
+The CPSTF finding is based on evidence from two systematic reviews that considered a total of 15 studies (search period through December 2007).
+The first review, conducted by the Cochrane Collaboration (Willis et al., 2004), identified 11 studies evaluating the effect of interlock installation on re-arrest rates for alcohol-impaired driving. The evidence from this review was supplemented by a follow-up review that covered a period through December 2007. This follow-up review included four additional studies and also evaluated evidence from the Cochrane Collaboration review to examine the effects of interlocks on crash outcomes.
+Study Characteristics
+- Reported participation rates varied from less than 1% of offenders to 64% of offenders (median: 13%).
+- The majority of reviewed studies prospectively followed offenders who had interlocks installed in their cars, and compared them to offenders who did not have interlocks and whose licenses were suspended instead. Because several nonrandom factors can influence whether a given offender has an interlock installed, such studies have a substantial risk of producing biased effect estimates resulting from non-comparable intervention and comparison groups.
+- Several studies included evidence suggesting at least some degree of non-comparability between groups. In particular, the interlock groups tended to be older, drive more, have higher incomes, and have more offenses or more serious offenses.
+Summary of Results
+The CPSTF recommendation was based on results from two systematic reviews that considered a total of 15 studies.
+- While interlocks were installed, re-arrest rates decreased by a median of 67% relative to comparison groups (13 studies). This estimate is based on all of the available studies that reported separate results for re-arrests during the interlock installation period.
+- When interlocks were removed, re-arrest rates reverted to rates similar to those of persons convicted of alcohol-impaired driving who had not used interlocks (11 studies).
+- Drivers with interlocks installed had fewer alcohol-related crashes than those who had licenses suspended for an alcohol-impaired driving conviction (1 study).
+- Overall, drivers with ignition interlocks had crash rates similar to those of the general driving population. Drivers with interlocks, however, had a substantially greater number of crashes overall than did drivers with suspended licenses. This is likely because those with ignition interlocks drove more than those with suspended licenses (2 studies).
+Summary of Economic Evidence
+An economic review of this intervention did not find any relevant studies.
+Applicability
+Included studies primarily evaluated programs that did the following:
+- Targeted “hardcore” drinking drivers repeat offenders or first-time offenders who had high BACs at arrest (usually 0.15 g/dL)
+- Enrolled a relatively small subset of all offenders
+To maximize public health impact, interlock programs will need to do the following:
+- Extend their reach to include a broader cross-section of offenders
+- Ensure a higher proportion of offenders have interlocks installed
+Evidence Gaps
+- How should programs be implemented and operated to be most effective?
+- What is the ideal length of interlock program participation?
+- Would performance-based criteria for ignition interlock removal lead to longer term effects than fixed period installations? For example, should participants have to demonstrate that they no longer need the interlock to prevent driving after drinking?
+- What are the most effective strategies to increase the number of offenders who participate in ignition interlock interventions?
+- What are the potential roles of newer technologies? Examples might include interlock hardware that is more resistant to circumvention attempts, or driver identification systems that ensure the driver actually provides a breath sample.
+Implementation Considerations and Resources
+- Most of the evaluated programs shared several key characteristics
+  - They were applied to offenders at high risk for recidivism, either due to multiple offenses or, for first-time offenders, high blood alcohol concentration (BAC) at the time of arrest (generally 0.15 g/dL).
+  - They were offered in exchange for a reduced length of license suspension (and used drivers with suspended licenses as a comparison).
+  - They required interlock installation for periods ranging from 5 to 36 months (medians of 7.5 months for first-time offenders and 18 months for repeat offenders).
+- Strategies to increase the number of offenders who drive interlock-equipped vehicles include the following:
+  - Increasing the number of offenders eligible for interlocks
+  - Increasing the desirability of participating in a program (e.g., reducing the time period of pre-interlock license suspension and improving enforcement of, and meaningful sanctions for, driving while suspended)
+  - Increasing the negative consequences of failing to participate in the program
+- Loopholes in the legislation may allow offenders to avoid interlock installation by claiming not to have vehicles or agreeing not to drive. Those who use this loophole with the intention of driving while suspended can drive an unregistered vehicle or one registered to another person.
+- Key features of interlock programs could improve their effectiveness
+  - Increasing the time period during which the interlock is installed
+  - Making the removal of interlocks contingent on appropriate behaviors
+  - Using interlocks in conjunction with alcohol rehabilitation programs
+  - Increasing the number of participants
+  - Improving protections against circumvention of interlocks
+- Interlocks require substantial administrative resources to monitor participants. Any major increase in program scope that is not accompanied by an increase in administrative resources may result in decreased effectiveness.
+- Ignition interlock programs typically require offenders to bring their ignition interlock equipped vehicle in for periodic maintenance and checkup (typically every 30 days). At these checkups, the data stored on the system can be downloaded and examined for signs of failed start attempts, tampering, and circumvention. Supervision and monitoring are essential and may play an important role in reducing recidivism rates among program participants. They ensure participants comply with requirements and communicate that drinking and driving behaviors need to change.
+Crosswalks
+Healthy People 2030 includes the following objectives related to this CPSTF recommendation.

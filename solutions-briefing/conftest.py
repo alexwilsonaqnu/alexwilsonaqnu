@@ -1,4 +1,4 @@
-"""Test fixtures. Tests need a real Postgres with pgvector (CI uses the pgvector/pgvector service image).
+"""Shared fixtures for tests/ and evals/. They need a real Postgres with pgvector (CI: pgvector/pgvector image).
 
 Set TEST_DATABASE_URL to point at a server; a throwaway database `solbrief_test` is (re)created on it.
 """
@@ -38,7 +38,7 @@ def database():
     from alembic import command
     from alembic.config import Config
 
-    root = os.path.dirname(os.path.dirname(__file__))
+    root = os.path.dirname(os.path.abspath(__file__))
     cfg = Config(os.path.join(root, "alembic.ini"))
     cfg.set_main_option("script_location", os.path.join(root, "src/solbrief/db/migrations"))
     command.upgrade(cfg, "head")
@@ -64,4 +64,6 @@ def clean_tables(database):
     from solbrief.db import get_engine
 
     with get_engine().begin() as conn:
-        conn.execute(text("TRUNCATE runs, problems, procrastinate_jobs CASCADE"))
+        conn.execute(
+            text("TRUNCATE runs, problems, solution_cards, experts, source_fetch_cache, procrastinate_jobs CASCADE")
+        )

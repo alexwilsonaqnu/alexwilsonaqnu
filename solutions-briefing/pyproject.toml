@@ -18,6 +18,10 @@ dependencies = [
   "httpx>=0.27",
   "pyyaml>=6.0",
   "feedparser>=6.0",
+  "trafilatura>=2.0",
+  "pypdf>=5.0",
+  "rapidfuzz>=3.10",
+  "tldextract>=5.1",
   "logfire[fastapi,psycopg,httpx]>=5.0",
 ]
 
@@ -46,6 +50,9 @@ packages = ["src/solbrief"]
 [tool.hatch.build.targets.wheel.force-include]
 "src/solbrief/taxonomy/v1.yaml" = "solbrief/taxonomy/v1.yaml"
 "src/solbrief/geo/data/counties.csv" = "solbrief/geo/data/counties.csv"
+"src/solbrief/library/seeds_cg.yaml" = "solbrief/library/seeds_cg.yaml"
+"src/solbrief/library/seeds_wwc.yaml" = "solbrief/library/seeds_wwc.yaml"
+"src/solbrief/skills" = "solbrief/skills"
 
 [tool.ruff]
 line-length = 120
@@ -59,6 +66,7 @@ ignore = ["S101"]
 [tool.ruff.lint.per-file-ignores]
 "src/solbrief/db/migrations/versions/*" = ["E501"]
 "tests/*" = ["S105", "S106"]
+"conftest.py" = ["S105"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "evals"]

@@ -1,0 +1,52 @@
+# Curated seed sources: CDC Community Guide (Community Preventive Services Task Force) findings.
+# Federal content; fetched politely and cited. The site lists findings only via JavaScript, so this list is
+# human-curated — every URL below was checked to resolve (HTTP 200) on 2026-11-03.
+# Add entries by hand; the drafter uses each as the primary source for one card.
+publisher: CDC Community Guide (CPSTF)
+source_type: systematic_review
+seeds:
+  - url: https://thecommunityguide.cdc.gov/findings/vaccination-programs-home-visits-increase-vaccination-rates.html
+    title: "Vaccination: Home Visits"
+    class_ids: [vaccination]
+  - url: https://thecommunityguide.cdc.gov/findings/vaccination-programs-client-reminder-and-recall-systems.html
+    title: "Vaccination: Client Reminder Systems"
+    class_ids: [vaccination]
+  - url: https://thecommunityguide.cdc.gov/findings/motor-vehicle-injury-alcohol-impaired-driving-ignition-interlocks.html
+    title: "Alcohol-Impaired Driving: Ignition Interlocks"
+    class_ids: [traffic-safety]
+  - url: https://thecommunityguide.cdc.gov/findings/motor-vehicle-injury-child-safety-seats-distribution-and-education-programs.html
+    title: "Child Safety Seats: Distribution, Education"
+    class_ids: [traffic-safety]
+  - url: https://thecommunityguide.cdc.gov/findings/mental-health-and-mental-illness-collaborative-care-management-depressive-disorders.html
+    title: "Depression: Collaborative Care"
+    class_ids: [mental-health]
+  - url: https://thecommunityguide.cdc.gov/findings/social-determinants-health-tenant-based-housing-voucher-programs.html
+    title: "SDOH: Tenant-Based Housing Vouchers"
+    class_ids: [housing-affordability, homelessness]
+  - url: https://thecommunityguide.cdc.gov/findings/social-determinants-health-housing-first-programs.html
+    title: "SDOH: Housing First Programs"
+    class_ids: [homelessness]
+  - url: https://thecommunityguide.cdc.gov/findings/social-determinants-health-center-based-early-childhood-education.html
+    title: "SDOH: Early Childhood Education"
+    class_ids: [early-childhood]
+  - url: https://thecommunityguide.cdc.gov/findings/diabetes-intensive-lifestyle-interventions-patients-type-2-diabetes.html
+    title: "Diabetes: Lifestyle Programs for Type 2"
+    class_ids: [chronic-disease]
+  - url: https://thecommunityguide.cdc.gov/findings/alcohol-excessive-consumption-increasing-alcohol-taxes.html
+    title: "Excessive Alcohol Use: Alcohol Taxes"
+    class_ids: [overdose-substance-use]
+  - url: https://thecommunityguide.cdc.gov/findings/alcohol-excessive-consumption-electronic-screening-and-brief-interventions-e-sbi.html
+    title: "Alcohol: E-Screening, Brief Intervention"
+    class_ids: [overdose-substance-use]
+  - url: https://thecommunityguide.cdc.gov/findings/Substance-Use-Digital-Interventions-to-Prevent-Substance-Use-among-Adolescents.html
+    title: "Substance Use: Digital Interventions among Adolescents"
+    class_ids: [overdose-substance-use, youth-mental-health]
+  - url: https://thecommunityguide.cdc.gov/findings/violence-school-based-programs.html
+    title: "Violence: School-Based Programs"
+    class_ids: [gun-violence, youth-mental-health]
+  - url: https://thecommunityguide.cdc.gov/findings/emergency-preparedness-and-response-school-dismissals-reduce-transmission-pandemic-influenza.html
+    title: "Influenza Transmission: School Dismissals"
+    class_ids: [infectious-disease-outbreaks, emergency-preparedness]
+  - url: https://thecommunityguide.cdc.gov/findings/physical-activity-built-environment-approaches.html
+    title: "Physical Activity: Built Environment Approaches"
+    class_ids: [chronic-disease, transit-mobility]

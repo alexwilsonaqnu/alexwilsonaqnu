@@ -111,3 +111,29 @@ def test_admin_problems_lists_ranked_feed(client):
     assert body["problems"][0]["places"] == ["Cotton County, OK"]
     only_cook = client.get("/admin/problems/2026-11-02?fips=17031", headers=AUTH).json()
     assert [p["title"] for p in only_cook["problems"]] == ["Minor thing"]
+
+
+def test_admin_cards_shows_verifier_outcomes(client):
+    from solbrief.db import session_scope
+    from solbrief.db.models import ItemType, SolutionCard
+
+    with session_scope() as s:
+        s.add(
+            SolutionCard(
+                slug="x-1",
+                title="Draft card",
+                item_type=ItemType.solution,
+                response_what="w",
+                problem_class_ids=["homelessness"],
+                verification={
+                    "reasons": ["pillar_unsupported:limitations"],
+                    "publishers": [],
+                    "supports": [{"ok": False, "reason": "span_not_found"}],
+                },
+            )
+        )
+    body = client.get("/admin/cards?publishable=false", headers=AUTH).json()
+    assert body["count"] == 1
+    card = body["cards"][0]
+    assert card["reasons"] == ["pillar_unsupported:limitations"] and card["dropped"][0]["reason"] == "span_not_found"
+    assert client.get("/admin/cards?publishable=true", headers=AUTH).json()["count"] == 0

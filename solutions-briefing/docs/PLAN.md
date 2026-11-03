@@ -1,6 +1,6 @@
 # Solutions Journalism Briefing System: Milestone 1 Plan
 
-Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; M1b built; M2 built 2026-11-02**
+Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; M1b built; M2 built 2026-11-02; M3 built 2026-11-03**
 
 This document covers Milestone 1: the implementation plan, the source access report, the schema, and the Fly
 deployment plan. The Milestone 1b skeleton implements §3 and §5; `docs/DEPLOY.md` is the Fly runbook.
@@ -373,6 +373,41 @@ in the same Alembic migration chain. No Redis. Queues: `pipeline` (concurrency 1
 * Not yet: cross-source clustering (needs embeddings, M4), county inference from free text beyond exact
   gazetteer matches, GDELT/news RSS/state health/BLS/Census/EIA adapters (pending keys and terms review).
 * Live check: one run pulled 139 items → 68 problems in ~4 s; 1 left unclassified (would go to the LLM fallback).
+
+### M3 implementation notes (2026-11-03)
+* **Seeds:** the Community Guide moved to thecommunityguide.cdc.gov and lists findings only via JavaScript, so its
+  15 seeds are a curated, HTTP-checked YAML list. WWC seeds (100) come from the official bulk export
+  (`StudyFindings/AllDataExport`): only "Positive"/"Potentially Positive" interventions in domains mapped to a
+  class, with ratings carried into the drafter prompt. Story Tracker and Cochrane remain excluded.
+* **Drafter:** one Agent SDK `query()` session per seed with `tools=[]`, two in-process MCP tools
+  (`fetch_source`, `search_openalex`), `output_format` = the `CardDraft` JSON schema, `max_budget_usd` cap
+  (default $2) and `DRAFTER_MODEL` (default `claude-opus-5-5`). Drafts store as provisional + unverified.
+* **Verifier (deterministic):**
+  - Quotes must be 40-700 characters and found in the fetched text, either exactly after normalization or at a
+    near-exact alignment of at least 0.95. Every number in a quote must be in the matched window.
+  - A claim may not add numbers or flip polarity. Blocked domains are refused.
+  - The response, insight, evidence and limitations pillars each need verified support, and numbers in card prose
+    must appear in that pillar's quotes.
+  - A card is verified only with at least 2 publishers (registrable domain, agencies folded, DOI prefix).
+  - Grade = the strongest plausibility-checked cap, never above the drafter's proposal.
+  - Experts must be named on their https institutional page; one who disappears from it is marked `moved`.
+  - `stale` on lost support; `card_versions` snapshot on every status change.
+* **Entailment:** an optional `VERIFIER_MODEL` check runs after the deterministic checks pass. It can only drop a
+  claim; a refusal or outage counts as unsupported.
+* **Safety:**
+  - Only public http(s) hosts are fetched; private, loopback and link-local addresses are refused (drafts are
+    model-written).
+  - Emails are scrubbed from cached source text.
+  - PubMed is read through NCBI E-utilities, NCBI's sanctioned route; its website returned 403 to repeated
+    automated requests.
+* **Evals:** 18 cases and 13 planted traps (fabricated span, altered number, added statistic, wrong page, dead
+  link, too-short span, paraphrase, Cochrane, negation in both directions, unquoted or fabricated limitation)
+  plus card-level traps. All caught; 0 genuine quotes rejected.
+* **Live check:** a card citing the real Community Guide page and PubMed abstract verified (grade
+  `meta_analysis_or_rct`, CDC + NIH). A planted "cut overdose deaths by 60%" claim was dropped as
+  `span_not_found`. Run both locally and inside the production image.
+* **Not yet:** the drafter has not run live here (no API key in this environment). Expert discovery depends on
+  the drafter. Stale cards are not yet re-drafted automatically.
 
 ## 6. Milestones (each demonstrated on staging first, then stop for review)
 

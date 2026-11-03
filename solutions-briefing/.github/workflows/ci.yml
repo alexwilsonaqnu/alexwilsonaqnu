@@ -24,11 +24,11 @@ jobs:
         with:
           version: "0.11.32"
       - name: Install
-        run: uv sync --frozen --extra dev
+        run: uv sync --frozen --extra dev --extra agents
       - name: Lint
         run: |
           uv run ruff check .
-          uv run ruff format --check src tests --exclude src/solbrief/db/migrations/versions
+          uv run ruff format --check src tests evals conftest.py --exclude src/solbrief/db/migrations/versions
       - name: Migrations apply cleanly and match the models
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
@@ -42,7 +42,7 @@ jobs:
       - name: Tests
         run: uv run pytest tests
       - name: Evals (matcher recall@5, verifier traps, evaluator cases)
-        # The eval suites land in M3–M5; this step runs them as soon as they exist and fails the PR on regression.
+        # Verifier trap set (M3, must catch 100%); matcher recall@5 (M4) and evaluator cases (M5) join here.
         run: |
           if ls evals/test_*.py >/dev/null 2>&1; then uv run pytest evals; else echo "no eval suites yet (M3+)"; fi
 

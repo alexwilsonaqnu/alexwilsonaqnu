@@ -208,7 +208,14 @@ class SolutionCard(Base):
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
     created_at: Mapped[datetime] = _now()
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Latest verifier report (per-claim outcomes and reasons). Written only by the verifier.
+    verification: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))  # None → SQL NULL ("never verified")
+    # Set only by the verifier: all four pillars present with verified support. Readers only ever see these.
+    publishable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     __table_args__ = (
+        CheckConstraint(
+            "NOT publishable OR status IN ('verified', 'provisional')", name="publishable_requires_live_status"
+        ),
         # A card can only be 'verified' if it has a verification timestamp and a grade.
         CheckConstraint(
             "status <> 'verified' OR (last_verified_at IS NOT NULL AND evidence_grade IS NOT NULL)",
@@ -240,11 +247,15 @@ class CardEvidence(Base):
     archived_url: Mapped[str | None] = mapped_column(Text)
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Which pillar this quote supports: the response, the insight (mechanism), or an evidence claim.
+    pillar: Mapped[str] = mapped_column(Text, nullable=False, server_default="evidence")
+    failure_reason: Mapped[str | None] = mapped_column(Text)
     __table_args__ = (
         CheckConstraint(
             "NOT verified OR (span_match_score IS NOT NULL AND fetched_at IS NOT NULL)",
             name="evidence_verified_requires_match",
         ),
+        CheckConstraint("pillar IN ('response', 'insight', 'evidence')", name="evidence_pillar"),
         Index("ix_evidence_card", "card_id"),
     )
 
@@ -256,8 +267,17 @@ class CardLimitation(Base):
     limitation: Mapped[str] = mapped_column(Text, nullable=False)
     source_url: Mapped[str] = mapped_column(Text, nullable=False)
     quoted_support_span: Mapped[str | None] = mapped_column(Text)
+    span_match_score: Mapped[float | None] = mapped_column(Float)
+    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failure_reason: Mapped[str | None] = mapped_column(Text)
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
-    __table_args__ = (Index("ix_limitations_card", "card_id"),)
+    __table_args__ = (
+        CheckConstraint(
+            "NOT verified OR (quoted_support_span IS NOT NULL AND span_match_score IS NOT NULL)",
+            name="limitation_verified_requires_match",
+        ),
+        Index("ix_limitations_card", "card_id"),
+    )
 
 
 class CardVersion(Base):

@@ -70,7 +70,9 @@ class PoliteClient:
         self._backoff_s = backoff_s
         self._sleep = sleep
 
-    def get(self, url: str, **kwargs) -> httpx.Response:
+    def get(self, url: str, *, raise_for_status: bool = True, **kwargs) -> httpx.Response:
+        """GET with retries on 429/5xx/transport errors. With raise_for_status=False, a final 4xx response is
+        returned instead of raised (the verifier needs to know a source is gone, not just that it failed)."""
         delay = self._backoff_s
         last: Exception | None = None
         for attempt in range(1, self._max_attempts + 1):
@@ -82,6 +84,8 @@ class PoliteClient:
                 if resp.status_code < 400:
                     return resp
                 if resp.status_code not in (429, 500, 502, 503, 504):
+                    if not raise_for_status:
+                        return resp
                     raise SourceError(f"GET {url} -> HTTP {resp.status_code}")
                 last = SourceError(f"GET {url} -> HTTP {resp.status_code}")
                 retry_after = resp.headers.get("Retry-After", "")

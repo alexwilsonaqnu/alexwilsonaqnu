@@ -130,3 +130,40 @@ def problems(run_date: dt.date, limit: int = 100, class_id: str | None = None, f
                 for r in rows
             ],
         }
+
+
+@router.get("/cards")
+def cards(
+    status: str | None = None, publishable: bool | None = None, class_id: str | None = None, limit: int = 100
+) -> dict:
+    """The solution library with verifier outcomes (why a card is or isn't publishable)."""
+    from solbrief.db.models import CardStatus, SolutionCard
+
+    with session_scope() as s:
+        q = select(SolutionCard)
+        if status:
+            q = q.where(SolutionCard.status == CardStatus(status))
+        if publishable is not None:
+            q = q.where(SolutionCard.publishable.is_(publishable))
+        if class_id:
+            q = q.where(SolutionCard.problem_class_ids.any(class_id))
+        rows = s.scalars(q.order_by(SolutionCard.created_at.desc()).limit(min(limit, 500))).all()
+        return {
+            "count": len(rows),
+            "cards": [
+                {
+                    "id": str(c.id),
+                    "slug": c.slug,
+                    "title": c.title,
+                    "status": c.status.value,
+                    "publishable": c.publishable,
+                    "grade": c.evidence_grade.value if c.evidence_grade else None,
+                    "classes": c.problem_class_ids,
+                    "last_verified_at": c.last_verified_at.isoformat() if c.last_verified_at else None,
+                    "publishers": (c.verification or {}).get("publishers"),
+                    "reasons": (c.verification or {}).get("reasons"),
+                    "dropped": [x for x in (c.verification or {}).get("supports", []) if not x.get("ok")],
+                }
+                for c in rows
+            ],
+        }

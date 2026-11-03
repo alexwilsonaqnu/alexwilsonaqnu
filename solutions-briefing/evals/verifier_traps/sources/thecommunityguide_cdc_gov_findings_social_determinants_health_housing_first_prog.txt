@@ -1,0 +1,58 @@
+Social Determinants of Health: Permanent Supportive Housing with Housing First (Housing First Programs)
+Findings and Recommendations
+The Community Preventive Services Task Force (CPSTF) recommends permanent supportive housing with Housing First (Housing First programs) to promote health equity for people who are experiencing homelessness and have a disabling condition.
+Evidence shows Housing First programs decrease homelessness, increase housing stability, and improve quality of life for homeless persons living with disabling conditions, including those with HIV infection. For clients living with HIV infection, these programs also improve clinical indicators and mental health and reduce mortality. Housing First programs also lead to reduced hospitalization and use of emergency departments for homeless persons with disabling conditions, including HIV infection.
+The CPSTF finds the economic benefits exceed the intervention cost for Housing First Programs in the United States. Because homelessness is associated with lower income and is more common among racial and ethnic minority populations, Housing First Programs are likely to advance health equity.
+The full CPSTF Finding and Rationale Statement and supporting documents for Social Determinants of Health: Permanent Supportive Housing with Housing First (Housing First Programs) are available in The Community Guide Collection on CDC Stacks.
+Intervention
+Housing First programs provide regular, subsidized, time-unlimited housing to individuals and families experiencing homelessness in which the head of household has a disabling condition (e.g., mental health or substance use disorders, difficulties in independent working and living, HIV infection). Clients are not required to be “housing ready,” (i.e., substance free or in treatment) to participate in a program. Once housed, they are encouraged, but not required, to maintain sobriety.
+Housing First programs offer clients one or more of the following services to support housing stability:
+- Help with housing (e.g., assistance getting furniture and training in money management, including rent)
+- Health care
+- Mental health services
+- Treatment for substance use disorder
+- Peer support
+- Occupational therapy
+- Employment counseling
+About The Systematic Review
+The CPSTF finding is based on evidence from a systematic review of 26 studies (search period through February 2018).
+Study Characteristics
+- Studies were done in urban (24 studies), suburban (1 study), or a mix of urban and suburban (1 study) settings across the United States (23 studies) and Canada (3 studies). None of the included studies were conducted in rural settings.
+- Study participants had a mean age of 42.4 years (20 studies) and 74.0% were male.
+- Only one study examined a program targeted to families; none of the studies focused on women or racial/ethnic minority populations.
+- Study designs included individual randomized control trials (8 studies) and pre-post studies with concurrent comparison groups (18 studies).
+Summary of Results
+The systematic review included 26 studies.
+Twenty-three studies evaluated interventions that served clients living with disabling conditions (excluding those living with HIV). Compared with clients in Treatment First programs or control group participants receiving treatment as usual, clients in Housing First programs experienced the following:
+- Median 41% greater housing stability (13 studies)
+- Median 88% greater decrease in homelessness (5 studies)
+- Median 5% greater improvement in quality of life (4 studies)
+- Median 5% greater reduction in emergency department use (3 studies)
+- 7% and 36% greater reduction in hospitalization (2 studies)
+There were no apparent differences in physical health, mental health, or substance abuse between the intervention and control groups.
+Three studies evaluated interventions that served clients living with HIV. Compared with control group participants receiving treatment as usual, clients in Housing First programs experienced the following:
+- 63% greater housing stability (1 study)
+- 38% greater reduction in homelessness (1 study)
+- Median 22% greater improvement in physical health (2 studies with 4 data points)
+- 13% greater improvement in mental health (1 study)
+- 32% to 42% greater reduction in mortality (2 studies)
+- 41% greater reduction in emergency department use (1 study)
+- 36% greater reduction in hospitalization (1 study)
+Summary of Economic Evidence
+A systematic review of economic evidence shows the economic benefits exceed the intervention cost for Housing First Programs in the United States.
+The economic review included 20 studies (search period through November 2019). Seventeen studies were from the U.S. and three were from Canada. All monetary values are reported in 2019 U.S. dollars.
+Applicability
+The finding should be applicable to people who are living with a disabling condition and experiencing homelessness in urban and suburban areas.
+Evidence Gaps
+- How effective are Housing First programs for families, youth, women, LGBTQ populations, and rural communities?
+- Which services do Housing First programs offer? How frequently do clients use offered services? How does program effectiveness vary by services available or used?
+- What is the long-term impact of Housing First programs on health outcomes?
+- What is the cost-effectiveness of Housing First programs?
+- What is the cost-benefit when interventions are implemented for youth or families, or in smaller urban or rural areas?
+Implementation Considerations and Resources
+- Community institutions may be resistant to providing programs for people who are not “housing ready.”
+- Landlords may not accept low-income tenants with subsidized housing. Unless there are regulations preventing this type of discrimination, landlords may reject rental applications from program participants.
+- People experiencing homelessness and living with disabling conditions commonly have diverse needs. Housing First programs can benefit from collaboration among agencies and coordination of services.
+- Funding can be a challenge. Currently, there is no coordinated, single source of funding for Housing First programs.
+Crosswalks
+Healthy People 2030 includes the following objective related to this CPSTF recommendation.

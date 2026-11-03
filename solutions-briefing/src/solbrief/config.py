@@ -49,6 +49,16 @@ class Settings(BaseSettings):
 
     # Model per stage (plan §4.1: Haiku-class for classification; strongest model for draft/verify/evaluate)
     classifier_model: str = "claude-haiku-5-5"
+    drafter_model: str = "claude-opus-5-5"
+    drafter_max_turns: int = 40
+    drafter_budget_usd: float = 2.0  # hard cap per drafting session
+    verifier_model: str = "claude-opus-5-5"
+    verifier_entailment: bool = True  # semantic claim/span check (only when ANTHROPIC_API_KEY is set)
+
+    # Library research
+    library_min_cards_per_class: int = 3
+    library_classes_per_run: int = 3
+    library_drafts_per_class: int = 1
 
     @property
     def effective_dry_run(self) -> bool:

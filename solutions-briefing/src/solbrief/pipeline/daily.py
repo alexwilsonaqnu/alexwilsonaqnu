@@ -19,8 +19,10 @@ from sqlalchemy.dialects.postgresql import insert
 
 from solbrief.db import get_engine, session_scope
 from solbrief.db.models import Run, RunStatus
-from solbrief.pipeline import ingest as _ingest  # noqa: F401  (registers the ingest stage)
+from solbrief.pipeline import ingest as _ingest  # noqa: F401  (registers stages on import)
+from solbrief.pipeline import library_stage as _library  # noqa: F401
 from solbrief.pipeline import stages
+from solbrief.pipeline import verify_stage as _verify  # noqa: F401
 from solbrief.pipeline.stages import STAGE_ORDER, StageContext, StageResult
 from solbrief.telemetry import current_trace_id
 

@@ -1,0 +1,26 @@
+{
+ "https://thecommunityguide.cdc.gov/findings/Substance-Use-Digital-Interventions-to-Prevent-Substance-Use-among-Adolescents.html": {
+  "file": "thecommunityguide_cdc_gov_findings_substance_use_digital_interventions_to_preven.txt",
+  "status": 200
+ },
+ "https://thecommunityguide.cdc.gov/findings/social-determinants-health-housing-first-programs.html": {
+  "file": "thecommunityguide_cdc_gov_findings_social_determinants_health_housing_first_prog.txt",
+  "status": 200
+ },
+ "https://thecommunityguide.cdc.gov/findings/motor-vehicle-injury-alcohol-impaired-driving-ignition-interlocks.html": {
+  "file": "thecommunityguide_cdc_gov_findings_motor_vehicle_injury_alcohol_impaired_driving.txt",
+  "status": 200
+ },
+ "https://ies.ed.gov/ncee/wwc/intervention/665": {
+  "file": "ies_ed_gov_ncee_wwc_intervention_665.txt",
+  "status": 200
+ },
+ "https://pubmed.ncbi.nlm.nih.gov/22652205/": {
+  "file": "pubmed_ncbi_nlm_nih_gov_22652205.txt",
+  "status": 200
+ },
+ "https://thecommunityguide.cdc.gov/findings/retired-finding-that-no-longer-exists.html": {
+  "file": null,
+  "status": 404
+ }
+}
