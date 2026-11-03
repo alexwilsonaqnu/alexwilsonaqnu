@@ -1,0 +1,37 @@
+{% if error %}
+<p class="notice">{{ error }}</p>
+{% elif results is not none %}
+<p class="meta">
+  {% if results %}{{ results|length }} documented response{{ "s" if results|length != 1 }}{% else %}No published solutions match yet{% endif %}
+  {% if classes %} · read as: {{ classes|join(", ") }}{% endif %}
+  {% if place %} · ranked for places like {{ place }}{% endif %}
+</p>
+{% if not results %}
+<p class="notice">The library only includes responses whose evidence we could verify against the source.
+  Try other words, or ask <a href="{{ SCILINE }}">SciLine</a> for an expert.</p>
+{% endif %}
+<ol class="cards">
+  {% for r in results %}{% set c = r.card %}
+  <li class="card">
+    <div class="labels">
+      <span class="type">Solution lead</span>
+      {% if c.evidence_grade %}<span class="badge grade-{{ c.evidence_grade.value }}">{{ GRADE_LABELS[c.evidence_grade.value] }}</span>{% endif %}
+      {% if c.status.value == "provisional" %}<span class="badge provisional" title="Supported by fewer than two independent sources">Provisional</span>{% endif %}
+    </div>
+    <h2><a href="/cards/{{ c.slug }}">{{ c.title }}</a></h2>
+    <p>{{ c.response_what }}</p>
+    {% if r.limitation %}<p class="limit"><strong>Probe:</strong> {{ r.limitation }}</p>{% endif %}
+    <p class="experts">
+      {% if r.experts %}
+        {% for e in r.experts %}<a href="{{ e.expert.contact_path_url }}" rel="noopener">{{ e.expert.name }}</a>{% if e.expert.institution %}, {{ e.expert.institution }}{% endif %} ({{ e.expert.stance.value }}){% if not loop.last %} · {% endif %}{% endfor %}
+      {% else %}No verified expert yet — <a href="{{ SCILINE }}">ask SciLine</a>{% endif %}
+    </p>
+    <p class="why">
+      {% if r.match.features.class >= 1 %}<span>same problem type</span>{% elif r.match.features.class > 0 %}<span>related problem type</span>{% endif %}
+      {% if r.match.features.geo >= 0.7 %}<span>similar-sized place</span>{% endif %}
+      {% if r.places %}<span>{{ r.places|join("; ") }}</span>{% endif %}
+    </p>
+  </li>
+  {% endfor %}
+</ol>
+{% endif %}

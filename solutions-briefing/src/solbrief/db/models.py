@@ -17,6 +17,7 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Computed,
     Date,
     DateTime,
     Enum,
@@ -28,7 +29,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, UUID
+from sqlalchemy.dialects.postgresql import ARRAY, CITEXT, JSONB, TSVECTOR, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 EMBEDDING_DIM = 1024  # voyage-3.5 default output dimension
@@ -162,6 +163,7 @@ class Problem(Base):
     item_type: Mapped[ItemType] = mapped_column(_pg_enum(ItemType, "item_type"), nullable=False)
     raw: Mapped[dict | None] = mapped_column(JSONB)
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
+    embedding_model: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
     __table_args__ = (
         UniqueConstraint("cluster_id", "run_date", name="uq_problem_cluster_day"),
@@ -206,12 +208,24 @@ class SolutionCard(Base):
     drafted_by_run: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     verified_by_run: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
+    embedding_model: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Latest verifier report (per-claim outcomes and reasons). Written only by the verifier.
     verification: Mapped[dict | None] = mapped_column(JSONB(none_as_null=True))  # None → SQL NULL ("never verified")
     # Set only by the verifier: all four pillars present with verified support. Readers only ever see these.
     publishable: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # Generated full-text vector for lexical retrieval (matcher). Weighted: title A, response B, insight C.
+    search_tsv: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "setweight(to_tsvector('english', coalesce(title, '')), 'A') || "
+            "setweight(to_tsvector('english', coalesce(response_what, '')), 'B') || "
+            "setweight(to_tsvector('english', coalesce(insight_mechanism, '') || ' ' || "
+            "coalesce(insight_transferability, '')), 'C')",
+            persisted=True,
+        ),
+    )
     __table_args__ = (
         CheckConstraint(
             "NOT publishable OR status IN ('verified', 'provisional')", name="publishable_requires_live_status"
@@ -223,6 +237,7 @@ class SolutionCard(Base):
         ),
         Index("ix_cards_classes", "problem_class_ids", postgresql_using="gin"),
         Index("ix_cards_status", "status"),
+        Index("ix_cards_search_tsv", "search_tsv", postgresql_using="gin"),
         Index(
             "ix_cards_embedding",
             "embedding",
@@ -422,6 +437,26 @@ class Run(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     __table_args__ = (UniqueConstraint("run_date", "stage", "dry_run", name="uq_run_day_stage"),)
+
+
+class MatchResult(Base):
+    """Matcher output per reader/problem for a run date; the writer (M5) reads only these rows."""
+
+    __tablename__ = "match_results"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    run_date: Mapped[date] = mapped_column(Date, nullable=False)
+    reader_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("readers.id", ondelete="CASCADE"))
+    problem_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("problems.id", ondelete="CASCADE"))
+    problem_rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    card_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("solution_cards.id", ondelete="CASCADE"))
+    card_rank: Mapped[int | None] = mapped_column(Integer)
+    score: Mapped[float | None] = mapped_column(Float)
+    features: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    created_at: Mapped[datetime] = _now()
+    __table_args__ = (
+        UniqueConstraint("run_date", "reader_id", "problem_id", "card_id", name="uq_match_result"),
+        Index("ix_match_results_reader_day", "reader_id", "run_date"),
+    )
 
 
 class SourceFetch(Base):

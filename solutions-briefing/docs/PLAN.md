@@ -1,6 +1,6 @@
 # Solutions Journalism Briefing System: Milestone 1 Plan
 
-Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; M1b built; M2 built 2026-11-02; M3 built 2026-11-03**
+Knight Lab / Northwestern Medill · drafted 2026-11-01 · status: **approved 2026-11-01; M1b built; M2 built 2026-11-02; M3 built 2026-11-03; M4 built 2026-11-03 (library build pending API keys)**
 
 This document covers Milestone 1: the implementation plan, the source access report, the schema, and the Fly
 deployment plan. The Milestone 1b skeleton implements §3 and §5; `docs/DEPLOY.md` is the Fly runbook.
@@ -408,6 +408,31 @@ in the same Alembic migration chain. No Redis. Queues: `pipeline` (concurrency 1
   `span_not_found`. Run both locally and inside the production image.
 * **Not yet:** the drafter has not run live here (no API key in this environment). Expert discovery depends on
   the drafter. Stale cards are not yet re-drafted automatically.
+
+### M4 implementation notes (2026-11-03)
+* **Similar-sized place:**
+  - The 2024 Census county population estimates (public domain) were added to `geo/data/counties.csv`.
+  - Bands: rural <50k, small 50–250k, mid 250k–1M, large >1M.
+  - `place_similarity` = 0.7·band closeness + 0.3·same state; it is neutral without geography.
+  - Puerto Rico municipios (published in a separate Census file) are neutral for now.
+* **Schema (0004):** `solution_cards.search_tsv` (generated, weighted title/response/insight, GIN index),
+  `embedding_model` on cards and problems, and `match_results`.
+* **Matcher:**
+  - Candidates are publishable verified/provisional cards from the union of class overlap (with parent/child),
+    the HNSW cosine top 50 and the full-text (OR-query) top 50.
+  - The score is the weighted sum of 8 features; the weights are in `weights.yaml`.
+  - Typed queries are classified by the rules, with the LLM classifier as a fallback.
+  - Service-guidance problems return no solution cards (M5 agency path).
+* **Coverage:** county and state readers get in-area problems plus national ones. "US" readers get national
+  problems plus any problem with severity ≥ 0.75.
+* **Fail-closed:** loading cards that have no evidence rows and running the verifier demoted them all to `stale`
+  (seen while seeding the dev database). Publishable always means verified support exists.
+* **Golden set:** the pairs and snapshot are fixtures until the real library is built. With keys:
+  1. `library-build --cards 40` (≤ $80);
+  2. I rewrite about 30 pairs against real cards;
+  3. `golden-snapshot` freezes the library and query embeddings;
+  4. `matcher-fit` tunes the weights;
+  5. the confirmed-pair threshold is set from the baseline.
 
 ## 6. Milestones (each demonstrated on staging first, then stop for review)
 

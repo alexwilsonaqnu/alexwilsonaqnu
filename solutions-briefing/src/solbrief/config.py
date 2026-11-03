@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     library_min_cards_per_class: int = 3
     library_classes_per_run: int = 3
     library_drafts_per_class: int = 1
+    library_build_budget_usd: float = 0.0  # total cap for `solbrief library-build`; 0 = refuse to spend
+
+    # Embeddings + search
+    voyage_model: str = "voyage-3.5"
+    search_rate_limit_per_minute: int = 20
 
     @property
     def effective_dry_run(self) -> bool:

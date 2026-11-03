@@ -1,0 +1,59 @@
+# Matcher golden set: reporter-style problem statements → the cards a good search must return in its top 5.
+#
+# status: proposed  — drafted by the build team; reported in CI, not gated
+#         confirmed — checked by a Knight Lab editor; CI fails if recall@5 on confirmed pairs < threshold
+#         rejected  — excluded
+#
+# INTERIM: pairs below target the fixture library in library.json (kind: fixture). Once the real library is
+# built (`solbrief library-build`), these are rewritten against real card slugs and `solbrief golden-snapshot`
+# freezes the library + query embeddings.
+version: 1
+library_kind: fixture
+threshold_confirmed_recall_at_5: null   # set from the first fitted baseline on confirmed pairs
+fixture_min_recall_at_5: 0.8            # sanity floor for the interim fixture set (no embeddings)
+pairs:
+  - id: g01
+    status: proposed
+    query: Homeless encampments are growing downtown and the city council wants options
+    expected: [fixture-housing-first]
+  - id: g02
+    status: proposed
+    query: Rents are rising so fast that low-income families are being priced out
+    expected: [fixture-housing-vouchers]
+  - id: g03
+    status: proposed
+    query: Repeat drunk drivers keep causing deadly crashes on county roads
+    expected: [fixture-ignition-interlocks]
+  - id: g04
+    status: proposed
+    query: Kids injured in car crashes because their car seats were installed wrong
+    expected: [fixture-child-safety-seats]
+  - id: g05
+    status: proposed
+    query: Childhood measles vaccination rates have dropped in rural counties
+    fips: ["30063"]
+    expected: [fixture-vaccination-home-visits, fixture-vaccination-reminders]
+  - id: g06
+    status: proposed
+    query: Teen vaping is up sharply at local high schools
+    expected: [fixture-digital-substance-use]
+  - id: g07
+    status: proposed
+    query: Clinics can't keep up with patients who have depression
+    expected: [fixture-collaborative-care]
+  - id: g08
+    status: proposed
+    query: Not enough preschool seats for three- and four-year-olds
+    expected: [fixture-early-childhood-ed]
+  - id: g09
+    status: proposed
+    query: Few students from our high schools go on to college
+    expected: [fixture-dual-enrollment]
+  - id: g10
+    status: proposed
+    query: Fights and violence in middle schools are increasing
+    expected: [fixture-school-violence]
+  - id: g11
+    status: proposed
+    query: Binge drinking and alcohol-related deaths keep climbing in the state
+    expected: [fixture-alcohol-taxes]

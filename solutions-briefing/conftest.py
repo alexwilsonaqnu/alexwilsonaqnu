@@ -25,9 +25,22 @@ os.environ["DATABASE_URL"] = _with_db(ADMIN_URL, TEST_DB)
 os.environ["APP_ENV"] = "test"
 os.environ["DRY_RUN"] = "true"
 os.environ["ADMIN_TOKEN"] = "test-admin-token"
-os.environ.pop("LOGFIRE_TOKEN", None)
-os.environ.pop("POSTMARK_SERVER_TOKEN", None)
-os.environ.pop("ANTHROPIC_API_KEY", None)  # tests never call Claude
+# Tests never call paid or external services. Empty env vars take precedence over a developer's .env file,
+# so real keys in .env can't leak into the test run.
+for _key in (
+    "ANTHROPIC_API_KEY",
+    "VOYAGE_API_KEY",
+    "OPENALEX_API_KEY",
+    "LOGFIRE_TOKEN",
+    "POSTMARK_SERVER_TOKEN",
+    "POSTMARK_INBOUND_WEBHOOK_SECRET",
+    "ALERT_EMAIL",
+    "BLS_API_KEY",
+    "CENSUS_API_KEY",
+    "EIA_API_KEY",
+):
+    os.environ[_key] = ""
+os.environ["LIBRARY_BUILD_BUDGET_USD"] = "0"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -65,5 +78,8 @@ def clean_tables(database):
 
     with get_engine().begin() as conn:
         conn.execute(
-            text("TRUNCATE runs, problems, solution_cards, experts, source_fetch_cache, procrastinate_jobs CASCADE")
+            text(
+                "TRUNCATE runs, problems, solution_cards, experts, readers, source_fetch_cache, "
+                "procrastinate_jobs CASCADE"
+            )
         )

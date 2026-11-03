@@ -43,15 +43,54 @@ class County:
     state_abbr: str
     name: str
     legacy: bool
+    population: int | None = None  # Census 2024 county estimate (None: Puerto Rico, legacy CT counties)
 
 
 @cache
 def counties() -> dict[str, County]:
     text = resources.files("solbrief.geo").joinpath("data/counties.csv").read_text(encoding="utf-8")
     return {
-        row["fips"]: County(row["fips"], row["state_abbr"], row["name"], row["legacy"] == "1")
+        row["fips"]: County(
+            row["fips"],
+            row["state_abbr"],
+            row["name"],
+            row["legacy"] == "1",
+            int(row["population"]) if row.get("population") else None,
+        )
         for row in csv.DictReader(text.splitlines())
     }
+
+
+# Population bands for "a solution from a similar-sized place ranks higher" (county level).
+POPULATION_BANDS = ("rural", "small", "mid", "large")  # <50k, 50k-250k, 250k-1M, >1M
+_BAND_LIMITS = (50_000, 250_000, 1_000_000)
+
+
+def population_band(fips: str) -> int | None:
+    """Index into POPULATION_BANDS for a county FIPS; None for states or unknown populations."""
+    c = counties().get(fips) if len(fips) == 5 else None
+    if c is None or c.population is None:
+        return None
+    return sum(c.population >= limit for limit in _BAND_LIMITS)
+
+
+def place_similarity(a: list[str], b: list[str]) -> float:
+    """0..1 similarity of two place lists (card's response places vs a query/problem's places).
+
+    Neutral 0.5 when either side has no geography. Otherwise the best pairwise score of:
+    population-band closeness (county level) and a same-state bonus.
+    """
+    if not a or not b:
+        return 0.5
+    states_a, states_b = {f[:2] for f in a}, {f[:2] for f in b}
+    bands_a = {x for x in (population_band(f) for f in a) if x is not None}
+    bands_b = {x for x in (population_band(f) for f in b) if x is not None}
+    band_score = 0.5
+    if bands_a and bands_b:
+        gap = min(abs(x - y) for x in bands_a for y in bands_b)
+        band_score = 1.0 - gap / (len(POPULATION_BANDS) - 1)
+    same_state = 1.0 if states_a & states_b else 0.0
+    return round(0.7 * band_score + 0.3 * same_state, 4)
 
 
 def is_state_fips(code: str) -> bool:

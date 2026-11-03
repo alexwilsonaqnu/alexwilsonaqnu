@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block main %}
+<form class="search" action="/search" method="get"
+      hx-get="/search" hx-target="#results" hx-push-url="true" hx-indicator="#searching">
+  <label for="q">Describe the problem you're reporting on</label>
+  <input id="q" name="q" type="search" value="{{ q }}" maxlength="500" required minlength="3"
+         placeholder="e.g. rural county's only hospital is closing its maternity ward" autofocus>
+  <div class="where">
+    <div>
+      <label for="state">State (optional)</label>
+      <select id="state" name="state" hx-get="/counties" hx-target="#county" hx-trigger="change" hx-include="this">
+        <option value="">Anywhere in the US</option>
+        {% for fips, name in states %}
+        <option value="{{ fips }}" {% if fips == state %}selected{% endif %}>{{ name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="county">County (optional)</label>
+      <select id="county" name="county"><option value="">Any county</option></select>
+    </div>
+  </div>
+  <button type="submit">Find solutions</button>
+  <span id="searching" class="htmx-indicator">Searching…</span>
+</form>
+<section id="results" aria-live="polite">
+  {% if results is not none or error %}{% include "_results.html" %}{% endif %}
+</section>
+{% endblock %}

@@ -18,6 +18,7 @@ from solbrief.adapters.base import PoliteClient
 from solbrief.config import get_settings
 from solbrief.db import session_scope
 from solbrief.db.models import CardStatus, RunStatus, SolutionCard
+from solbrief.embed import embed_pending
 from solbrief.pipeline.stages import StageContext, StageResult, stage
 from solbrief.verify import http_fetcher, verify_card
 from solbrief.verify.entailment import anthropic_entailment
@@ -78,6 +79,13 @@ def verify(ctx: StageContext) -> StageResult:
     finally:
         client.close()
     errors = [{"msg": f"{n} card(s) errored"} for k, n in counts.items() if k.endswith(":error")]
+    try:
+        embedded = embed_pending()  # newly publishable cards become searchable semantically
+    except Exception as exc:
+        log.exception("embedding cards failed")
+        embedded = {"error": type(exc).__name__}
+        errors.append({"stage_part": "embeddings", "msg": str(exc)[:300]})
+    counts["embeddings"] = embedded
     status = RunStatus.partial if errors else RunStatus.succeeded
     counts_out = {"new": len(new), "reverify": len(old), "entailment_check": entails is not None, **dict(counts)}
     return StageResult(status=status, counts=counts_out, errors=errors)

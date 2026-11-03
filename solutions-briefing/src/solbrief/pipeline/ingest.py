@@ -26,6 +26,7 @@ from solbrief.adapters.base import PoliteClient, RawItem
 from solbrief.classify import anthropic_classifier, classify_items
 from solbrief.db import session_scope
 from solbrief.db.models import ItemType, Problem, RunStatus
+from solbrief.embed import embed_pending
 from solbrief.pipeline.stages import StageContext, StageResult, stage
 
 log = logging.getLogger(__name__)
@@ -137,6 +138,11 @@ def ingest(ctx: StageContext) -> StageResult:
     clusters = cluster_items(items)
     counts["problems_written"] = upsert_clusters(clusters, ctx.run_date)
     counts["items"] = len(items)
+    try:
+        counts["embeddings"] = embed_pending(run_date=ctx.run_date)
+    except Exception as exc:  # embeddings help ranking; their outage must not lose the day's problems
+        log.exception("embedding problems failed")
+        errors.append({"stage_part": "embeddings", "type": type(exc).__name__, "msg": str(exc)[:300]})
 
     if adapters.ADAPTERS and len(errors) == len(adapters.ADAPTERS):
         status = RunStatus.failed

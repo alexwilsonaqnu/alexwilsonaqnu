@@ -1,0 +1,156 @@
+{
+ "kind": "fixture",
+ "note": "Interim fixture library for exercising the harness. Replace with `solbrief golden-snapshot` once the real library is built. These cards are never served to readers.",
+ "embedding_model": null,
+ "cards": [
+  {
+   "slug": "fixture-housing-first",
+   "title": "Housing First programs",
+   "problem_class_ids": [
+    "homelessness"
+   ],
+   "response_what": "Permanent supportive housing for people experiencing homelessness with a disabling condition, without requiring sobriety or treatment first.",
+   "insight_mechanism": "Stable housing first makes treatment and services easier to use.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-housing-vouchers",
+   "title": "Tenant-based housing vouchers",
+   "problem_class_ids": [
+    "housing-affordability",
+    "homelessness"
+   ],
+   "response_what": "Rental vouchers that low-income families use to rent homes on the private market.",
+   "insight_mechanism": "Lower rent burden frees income for food, health care and stability.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-ignition-interlocks",
+   "title": "Ignition interlocks for drunk-driving offenders",
+   "problem_class_ids": [
+    "traffic-safety"
+   ],
+   "response_what": "Breath-test devices installed in vehicles of people convicted of alcohol-impaired driving.",
+   "insight_mechanism": "The car will not start if the driver has been drinking, preventing repeat offenses.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-child-safety-seats",
+   "title": "Child safety seat distribution and education",
+   "problem_class_ids": [
+    "traffic-safety"
+   ],
+   "response_what": "Programs that give out car seats and teach parents to install them correctly.",
+   "insight_mechanism": "Correctly used car seats reduce injuries to children in crashes.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-vaccination-home-visits",
+   "title": "Home visits to increase vaccination",
+   "problem_class_ids": [
+    "vaccination"
+   ],
+   "response_what": "Health workers visit families at home to deliver or arrange vaccinations.",
+   "insight_mechanism": "Removing travel and scheduling barriers raises immunization rates.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-vaccination-reminders",
+   "title": "Client reminder and recall for vaccination",
+   "problem_class_ids": [
+    "vaccination"
+   ],
+   "response_what": "Text, phone and mail reminders telling patients when vaccines are due or overdue.",
+   "insight_mechanism": "Prompts at the right time overcome forgetting and missed appointments.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-digital-substance-use",
+   "title": "Digital interventions to prevent teen substance use",
+   "problem_class_ids": [
+    "overdose-substance-use",
+    "youth-mental-health"
+   ],
+   "response_what": "Apps, websites and text-message programs that teach adolescents skills to avoid alcohol, vaping and drugs.",
+   "insight_mechanism": "Interactive skills practice delivered where teens already spend time.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-collaborative-care",
+   "title": "Collaborative care for depression",
+   "problem_class_ids": [
+    "mental-health"
+   ],
+   "response_what": "Primary care teams with a care manager and psychiatric consultant treat depression together.",
+   "insight_mechanism": "Systematic follow-up and stepped treatment catch patients who are not improving.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-early-childhood-ed",
+   "title": "Center-based early childhood education",
+   "problem_class_ids": [
+    "early-childhood"
+   ],
+   "response_what": "Publicly funded preschool programs for children ages three and four.",
+   "insight_mechanism": "Early learning builds cognitive and social skills that pay off in school.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-dual-enrollment",
+   "title": "Dual enrollment programs",
+   "problem_class_ids": [
+    "postsecondary-access",
+    "chronic-absenteeism"
+   ],
+   "response_what": "High school students take college courses for credit before graduating.",
+   "insight_mechanism": "Early college credit raises expectations and shortens the path to a degree.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-school-violence",
+   "title": "School-based violence prevention programs",
+   "problem_class_ids": [
+    "gun-violence",
+    "youth-mental-health"
+   ],
+   "response_what": "Classroom programs that teach conflict resolution and social skills to reduce violent behavior.",
+   "insight_mechanism": "Students learn alternatives to aggression before conflicts escalate.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  },
+  {
+   "slug": "fixture-alcohol-taxes",
+   "title": "Increasing alcohol taxes",
+   "problem_class_ids": [
+    "overdose-substance-use"
+   ],
+   "response_what": "State and local tax increases on beer, wine and spirits.",
+   "insight_mechanism": "Higher prices reduce excessive drinking and its harms.",
+   "status": "verified",
+   "evidence_grade": "meta_analysis_or_rct",
+   "last_verified_at": "2026-10-01T00:00:00+00:00"
+  }
+ ],
+ "query_embeddings": {}
+}

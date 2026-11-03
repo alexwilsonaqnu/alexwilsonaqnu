@@ -3443,13 +3443,13 @@ dependencies = [
     { name = "tldextract" },
     { name = "trafilatura" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "voyageai" },
 ]
 
 [package.optional-dependencies]
 agents = [
     { name = "anthropic" },
     { name = "claude-agent-sdk" },
-    { name = "voyageai" },
 ]
 dev = [
     { name = "mypy" },
@@ -3483,7 +3483,7 @@ requires-dist = [
     { name = "tldextract", specifier = ">=5.1" },
     { name = "trafilatura", specifier = ">=2.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.32" },
-    { name = "voyageai", marker = "extra == 'agents'", specifier = ">=0.3" },
+    { name = "voyageai", specifier = ">=0.3" },
 ]
 provides-extras = ["agents", "dev"]
 

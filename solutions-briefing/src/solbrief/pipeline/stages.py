@@ -4,7 +4,7 @@ Each stage is a plain function `(StageContext) -> StageResult`. Stages read inpu
 write outputs with upserts keyed on run_date, so any stage can be re-run for any date.
 
 Stages not yet built are registered stubs that report `skipped`; real stages replace them as each
-milestone lands (ingest: M2; verify, library_research: M3).
+milestone lands (ingest: M2; verify, library_research: M3; match: M4).
 """
 
 from __future__ import annotations
@@ -72,7 +72,6 @@ def _not_implemented(milestone: str) -> StageFn:
 
 # Implemented stages register themselves with @stage when their module is imported (see daily.py).
 for _name, _milestone in {
-    "match": "M4",
     "write": "M5",
     "evaluate": "M5",
     "deliver": "M5",

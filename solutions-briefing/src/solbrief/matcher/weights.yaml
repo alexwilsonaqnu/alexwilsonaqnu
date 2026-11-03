@@ -1,0 +1,14 @@
+# Matcher feature weights: score = Σ weight × feature (features are 0..1; feedback is a penalty).
+# Initial hand-set values; `solbrief matcher-fit` tunes them on the golden set and rewrites this file.
+version: 1
+fitted_on: null
+recall_at_5: null
+weights:
+  semantic: 0.40   # cosine similarity of Voyage embeddings (query vs card)
+  class: 0.25      # taxonomy overlap: 1 exact, 0.5 via parent/child
+  lexical: 0.15    # full-text rank, normalized within the candidate set
+  geo: 0.08        # similar-sized place (county population band) + same state
+  grade: 0.06      # evidence grade (anecdotal 0 … meta-analysis/RCT 1)
+  verified: 0.04   # verified (two independent publishers) vs provisional
+  recency: 0.02    # how recently the verifier confirmed the card
+  feedback: -0.20  # reporters marked it "bad lead" / "already covered"
